@@ -7,6 +7,8 @@ QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
+class WBSignalDetectWidget;
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -17,5 +19,7 @@ public:
 
 private:
     Ui::MainWindow *ui;
+    WBSignalDetectWidget* m_pSigDetectWidget = nullptr;
+
 };
 #endif // MAINWINDOW_H

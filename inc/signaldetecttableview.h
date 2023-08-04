@@ -3,7 +3,6 @@
 
 #include <QWidget>
 #include <QTableView>
-#include <QStandardItemModel>
 
 class SignalDetectTableView : public QTableView
 {
@@ -11,12 +10,9 @@ class SignalDetectTableView : public QTableView
 public:
     explicit SignalDetectTableView(QWidget *parent = nullptr);
 
-    void RenewItems();
 protected:
     virtual ~SignalDetectTableView();
 
-private:
-    QStandardItemModel* m_model = nullptr;
 
 signals:
 

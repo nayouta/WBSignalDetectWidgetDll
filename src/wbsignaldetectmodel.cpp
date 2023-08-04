@@ -1,8 +1,142 @@
-#include "wbsignaldetectmodel.h"
+#include "../inc/wbsignaldetectmodel.h"
+#include <QDateTime>
 
-WBSignalDetectModel::WBSignalDetectModel(QObject *parent) : QAbstractTableModel(parent)
+WBSignalDetectModel::WBSignalDetectModel(QObject *parent)
+    : QAbstractTableModel(parent)
 {
+    m_Font.setFamily("Microsoft Yahei");
+    //TODO:根据实际显示结果调整
+    m_Font.setPixelSize(17);
 
+    connect(this, &WBSignalDetectModel::sigTriggerRefreshData, this, &WBSignalDetectModel::UpdateData);
+    connect(this, &WBSignalDetectModel::sigTriggerUpdateData, this, &WBSignalDetectModel::FindSignal);
+}
+
+QVariant WBSignalDetectModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    if (role != Qt::DisplayRole)
+        return QVariant();
+    if(m_eUserViewType == NOT_USED){
+        return QVariant();
+    }
+    if (orientation == Qt::Horizontal) {
+        if(m_eUserViewType == SIGNAL_DETECT_TABLE){
+            switch (section) {
+            case 0 :
+                return "序号";
+            case 1 :
+                return "中心频率";
+            case 2 :
+                return "电平";
+            case 3 :
+                return "带宽";
+            case 4 :
+                return "起始时间";
+            case 5 :
+                return "结束时间";
+            case 6 :
+                return "占用带宽";
+            case 7 :
+                return "信号占用度";
+            default :
+                return "";
+            }
+        }else if(m_eUserViewType == DISTURB_NOISE_TABLE){
+            switch (section) {
+            case 0 :
+                return "序号";
+            case 1 :
+                return "中心频率";
+            case 2 :
+                return "大信号电平";
+            case 3 :
+                return "测量时间";
+            default :
+                return "";
+            }
+
+        }else if(m_eUserViewType == MAN_MADE_NOISE_TABLE){
+            switch (section) {
+            case 0 :
+                return "序号";
+            case 1 :
+                return "测量频率";
+            case 2 :
+                return "时间";
+            case 3 :
+                return "测量电平";
+            case 4 :
+                return "平均电平";
+            case 5 :
+                return "最大电平";
+            case 6 :
+                return "最小电平";
+            case 7 :
+                return "检波方式";
+            case 8 :
+                return "中频带宽";
+            default :
+                return "";
+            }
+
+        }
+    } else {
+        return QString("%1").arg(section + 1);
+    }
+    return QVariant();
+}
+
+int WBSignalDetectModel::rowCount(const QModelIndex &parent) const
+{
+    if (parent.isValid())
+        return 0;
+
+    //当前总列数为存活信号与完成信号的总长度
+    //TODO:其他场景情况根据显示需要增加逻辑，如仅显示存活信号或仅显示已完成信号等，或者过多长时间后在删除对应记录等
+    return m_mapActiveSignalCharacter.keys().length() + m_lstFinishedSignalCharacter.length();
+}
+
+int WBSignalDetectModel::columnCount(const QModelIndex &parent) const
+{
+    if (parent.isValid())
+        return 0;
+    //三个表格同时只能显示其中一个，根据当前使用者表格类型进行显示
+    //TODO:后续可能需要三个表格同时显示，则采用对col进行hide的方式实现
+    if(m_eUserViewType == NOT_USED){
+        return 0;
+    }
+    if(m_eUserViewType == SIGNAL_DETECT_TABLE){
+        return 8;
+    }
+    if(m_eUserViewType == DISTURB_NOISE_TABLE){
+        return 4;
+    }
+    if(m_eUserViewType == MAN_MADE_NOISE_TABLE){
+        return 9;
+    }
+    return 0;
+}
+
+QVariant WBSignalDetectModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid())
+        return QVariant();
+
+    if(m_eUserViewType == NOT_USED){
+        return QVariant();
+    }
+    if (role == Qt::DisplayRole || role == Qt::EditRole) {              //显示内容
+        return m_DisplayData[index.row()].at(index.column());
+    } else if (role == Qt::TextAlignmentRole) {   //内容排版
+        return Qt::AlignCenter;
+    } else if (role == Qt::FontRole) {           //字体
+        return m_Font;
+    } else if(role == Qt::UserRole){
+        return QVariant::fromValue(m_DisplayData[index.row()].at(index.column()));
+    }
+
+    //TODO:显示自定义实现方法
+    return QVariant();
 }
 
 int WBSignalDetectModel::FindSignal(float *FFtin, int InStep, int length, int Freqency, int BandWidth)
@@ -32,32 +166,46 @@ int WBSignalDetectModel::FindSignal(float *FFtin, int InStep, int length, int Fr
     //TODO: 状态错误时的处理方法
     //记录本次检测到的大功率信号 list
     int ret = 1;
+    m_lstSignalInfo.clear();
     findPeakCyclically(FFtAvg, length, Freqency, BandWidth);
     if(!m_lstSignalInfo.isEmpty()){
         ret = 0;
     }
 
+    bool foundFlag = false;
     //与已积累下来的保持存活信号进行比较 map
-
-    //对已完成的信号进行保存 list
-
+    QMap<int, DisplaySignalCharacter> newAddSignalTempMap;
+    QList<int> curSignalFreqTempList;
+    foreach (const auto& curInfo, m_lstSignalInfo) {
+        curSignalFreqTempList.append(curInfo.CentFreq);
+        foreach (const auto& activeFreq, m_mapActiveSignalCharacter.keys()) {
+            if(curInfo.CentFreq == activeFreq){     //已有的信号直接跳过
+                foundFlag = true;
+                break;
+            }
+        }
+        //添加新信号
+        if(!foundFlag){
+            DisplaySignalCharacter newSignalChar;
+            newSignalChar.Info = curInfo;
+            newSignalChar.startTime = QDateTime::currentMSecsSinceEpoch();
+            newSignalChar.stopTime = 0;
+            newAddSignalTempMap.insert(curInfo.CentFreq, newSignalChar);
+        }
+    }
+    m_mapActiveSignalCharacter.insert(newAddSignalTempMap);
+    //未找到的信号说明已经结束，更新结束时间，并保存到结束list中
+    foreach (const auto& activeFreq, m_mapActiveSignalCharacter.keys()) {
+        if(!curSignalFreqTempList.contains(activeFreq)){
+            m_mapActiveSignalCharacter[activeFreq].stopTime = QDateTime::currentMSecsSinceEpoch();
+            m_lstFinishedSignalCharacter.append(m_mapActiveSignalCharacter.take(activeFreq));
+        }
+    }
     ippsFree(FFtAvg);
+
+    emit sigTriggerRefreshData();
+
     return ret;
-}
-
-int WBSignalDetectModel::rowCount(const QModelIndex &parent) const
-{
-
-}
-
-int WBSignalDetectModel::columnCount(const QModelIndex &parent) const
-{
-
-}
-
-QVariant WBSignalDetectModel::data(const QModelIndex &index, int role) const
-{
-
 }
 
 int WBSignalDetectModel::SampleDownFromInBuf(short *inBuf, int len, short *outBuf, int factor){
@@ -214,4 +362,62 @@ bool WBSignalDetectModel::findPeakCyclically(Ipp32f * FFtAvg, int length, int Fr
         totalIndex = RightAddr + 1;
     }
     return true;
+}
+
+MODEL_USER_VIEW WBSignalDetectModel::UserViewType() const
+{
+    return m_eUserViewType;
+}
+
+void WBSignalDetectModel::setUserViewType(MODEL_USER_VIEW newEUserViewType)
+{
+    m_eUserViewType = newEUserViewType;
+}
+
+void WBSignalDetectModel::UpdateData()
+{
+    beginResetModel();
+    m_DisplayData.clear();
+    //对需显示的数据进行拼合
+    QList<DisplaySignalCharacter> displaySingalLst;
+    displaySingalLst.append(m_mapActiveSignalCharacter.values());
+    displaySingalLst.append(m_lstFinishedSignalCharacter);
+
+    //重置model中的数据
+    for (int i = 0; i < rowCount(); i++) {
+        //根据当前用于显示的view类型进行区分
+        if(m_eUserViewType == NOT_USED){
+            break;
+        }
+        QVector<QString> line;
+        line.append(QString("%1").arg(i+1));
+        line.append(QString::number(displaySingalLst.at(i).Info.CentFreq));
+        if(m_eUserViewType == SIGNAL_DETECT_TABLE){
+            //line.append(QString::number(displaySingalLst.at(i).Info));
+            line.append("");        //电平
+            line.append(QString::number(displaySingalLst.at(i).Info.Bound));
+            QDateTime time;
+            time.setMSecsSinceEpoch(displaySingalLst.at(i).startTime);
+            line.append(time.toString("yyyy-MM-dd hh:mm:ss.zzz"));
+            time.setMSecsSinceEpoch(displaySingalLst.at(i).stopTime);
+            line.append(time.toString("yyyy-MM-dd hh:mm:ss.zzz"));
+            line.append("");        //占用带宽
+            line.append("");        //信号占用度
+        }else if(m_eUserViewType == DISTURB_NOISE_TABLE){
+            //TODO:干扰信号测量表格
+            line.append("");
+            line.append("");
+        }else if(m_eUserViewType == MAN_MADE_NOISE_TABLE){
+            //TODO:电磁环境认为噪声电平测量表格
+            line.append("");
+            line.append("");
+            line.append("");
+            line.append("");
+            line.append("");
+            line.append("");
+            line.append("");
+        }
+        m_DisplayData.append(line);
+    }
+    endResetModel();
 }
