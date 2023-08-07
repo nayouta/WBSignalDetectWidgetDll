@@ -7,7 +7,7 @@ SignalDetectTableView::SignalDetectTableView(QWidget *parent)
     : QTableView{parent}
 {
     horizontalHeader()->setStretchLastSection(true);
-    horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     setSortingEnabled(true);
 
 }

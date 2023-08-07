@@ -8,8 +8,10 @@ WBSignalDetectModel::WBSignalDetectModel(QObject *parent)
     //TODO:根据实际显示结果调整
     m_Font.setPixelSize(17);
 
+    m_i64SystemStartTime = QDateTime::currentMSecsSinceEpoch();
+    m_i64SystemStopTime = m_i64SystemStartTime;
+
     connect(this, &WBSignalDetectModel::sigTriggerRefreshData, this, &WBSignalDetectModel::UpdateData);
-    connect(this, &WBSignalDetectModel::sigTriggerUpdateData, this, &WBSignalDetectModel::FindSignal);
 }
 
 QVariant WBSignalDetectModel::headerData(int section, Qt::Orientation orientation, int role) const
@@ -143,31 +145,34 @@ int WBSignalDetectModel::FindSignal(float *FFtin, int InStep, int length, int Fr
 {
     int AvgCnt = 0;
     Ipp32f * FFtAvg = ippsMalloc_32f(length);
-    //fprint32f("FFtIn.txt", FFtin, length);
-    //获取活滑动Step个点的平均FFt波形
-    for (int i = 0; i < length; i++)
-    {
-        AvgCnt = (i - InStep / 2) >= 0 ? 32 : (i + InStep / 2);
-        if (i <= InStep / 2)
-        {
-            AvgCnt = i + InStep / 2;
-            ippsMean_32f(FFtin, AvgCnt, &FFtAvg[i], ippAlgHintNone);
-        }
-        else if((length - i) <= InStep)
-        {
-            AvgCnt = length - i;
-            ippsMean_32f(&FFtin[i], AvgCnt, &FFtAvg[i], ippAlgHintNone);
-        }
-        else
-        {
-            ippsMean_32f(&FFtin[i], InStep, &FFtAvg[i], ippAlgHintNone);
-        }
-    }
+    m_iFullBandWidth = BandWidth;
+    //暂时跳过进行fft平滑的步骤
+//    //获取活滑动Step个点的平均FFt波形
+//    for (int i = 0; i < length; i++)
+//    {
+//        AvgCnt = (i - InStep / 2) >= 0 ? 32 : (i + InStep / 2);
+//        if (i <= InStep / 2)
+//        {
+//            AvgCnt = i + InStep / 2;
+//            ippsMean_32f(FFtin, AvgCnt, &FFtAvg[i], ippAlgHintNone);
+//        }
+//        else if((length - i) <= InStep)
+//        {
+//            AvgCnt = length - i;
+//            ippsMean_32f(&FFtin[i], AvgCnt, &FFtAvg[i], ippAlgHintNone);
+//        }
+//        else
+//        {
+//            ippsMean_32f(&FFtin[i], InStep, &FFtAvg[i], ippAlgHintNone);
+//        }
+//    }
+//    //fprint32f("FFtIn.txt", FFtin, length);
     //TODO: 状态错误时的处理方法
     //记录本次检测到的大功率信号 list
     int ret = 1;
     m_lstSignalInfo.clear();
-    findPeakCyclically(FFtAvg, length, Freqency, BandWidth);
+//    findPeakCyclically(FFtAvg, length, Freqency, BandWidth);
+    findPeakCyclically(FFtin, length, Freqency, BandWidth);
     if(!m_lstSignalInfo.isEmpty()){
         ret = 0;
     }
@@ -275,6 +280,7 @@ bool WBSignalDetectModel::findPeakIteratively(Ipp32f * FFtAvg, int length, int F
     SignalInfoStr currentSignalInfo;
     currentSignalInfo.Bound = (RightAddr - LeftAddr)*(float)((float)BandWidth / (float)length);
     currentSignalInfo.CentFreq = Freqency + ((RightAddr+ LeftAddr)/2 - length / 2)*(float)((float)BandWidth / (float)length);
+    currentSignalInfo.Amp = FFtMax;
     //获取信号平均功率
     ippsMean_32f(&FFtAvg[LeftAddr], RightAddr - LeftAddr + 1, &SignalPower, ippAlgHintFast);
     //获取噪声平均功率
@@ -350,6 +356,7 @@ bool WBSignalDetectModel::findPeakCyclically(Ipp32f * FFtAvg, int length, int Fr
         SignalInfoStr currentSignalInfo;
         currentSignalInfo.Bound = (RightAddr - LeftAddr)*(float)((float)BandWidth / (float)length);
         currentSignalInfo.CentFreq = Freqency + ((RightAddr+ LeftAddr)/2 - length / 2)*(float)((float)BandWidth / (float)length);
+        currentSignalInfo.Amp = FFtMax;
         //获取信号平均功率
         ippsMean_32f(&FFtAvg[LeftAddr], RightAddr - LeftAddr + 1, &SignalPower, ippAlgHintFast);
         //获取噪声平均功率
@@ -362,6 +369,26 @@ bool WBSignalDetectModel::findPeakCyclically(Ipp32f * FFtAvg, int length, int Fr
         totalIndex = RightAddr + 1;
     }
     return true;
+}
+
+void WBSignalDetectModel::setFThreshold(float newFThreshold)
+{
+    m_fThreshold = newFThreshold;
+}
+
+void WBSignalDetectModel::setFreqPointThreshold(uint newFreqPointThreshold)
+{
+    m_FreqPointThreshold = newFreqPointThreshold;
+}
+
+void WBSignalDetectModel::setActiveThreshold(uint newActiveThreshold)
+{
+    m_ActiveThreshold = newActiveThreshold;
+}
+
+void WBSignalDetectModel::setBandwidthThreshold(uint newBandwidthThreshold)
+{
+    m_BandwidthThreshold = newBandwidthThreshold;
 }
 
 MODEL_USER_VIEW WBSignalDetectModel::UserViewType() const
@@ -394,15 +421,33 @@ void WBSignalDetectModel::UpdateData()
         line.append(QString::number(displaySingalLst.at(i).Info.CentFreq));
         if(m_eUserViewType == SIGNAL_DETECT_TABLE){
             //line.append(QString::number(displaySingalLst.at(i).Info));
-            line.append("");        //电平
-            line.append(QString::number(displaySingalLst.at(i).Info.Bound));
+            line.append(QString::number(displaySingalLst.at(i).Info.Amp + 107));        //电平，采用107算法
+            line.append(QString::number(displaySingalLst.at(i).Info.Bound));        //带宽
             QDateTime time;
             time.setMSecsSinceEpoch(displaySingalLst.at(i).startTime);
-            line.append(time.toString("yyyy-MM-dd hh:mm:ss.zzz"));
+            line.append(time.toString("yyyy-MM-dd hh:mm:ss.zzz"));          //起始时间
             time.setMSecsSinceEpoch(displaySingalLst.at(i).stopTime);
-            line.append(time.toString("yyyy-MM-dd hh:mm:ss.zzz"));
-            line.append("");        //占用带宽
-            line.append("");        //信号占用度
+            line.append(time.toString("yyyy-MM-dd hh:mm:ss.zzz"));      //结束时间
+
+            if(m_iFullBandWidth <= 0 || m_iFullBandWidth < displaySingalLst.at(i).Info.Bound){
+                line.append("");
+            }else{
+                line.append(QString("%1%").arg(100 * displaySingalLst.at(i).Info.Bound / m_iFullBandWidth));        //占用带宽
+            }
+
+            qint64 duringTime = 0;
+            qint64 nowTime = QDateTime::currentMSecsSinceEpoch();
+            if(displaySingalLst.at(i).stopTime == 0){
+                duringTime = nowTime - displaySingalLst.at(i).startTime;
+            }else{
+                duringTime = displaySingalLst.at(i).stopTime - displaySingalLst.at(i).startTime;
+            }
+            //信号占用度
+            if(m_i64SystemStopTime == m_i64SystemStartTime){
+                line.append(QString::number(double(duringTime) / double(nowTime - m_i64SystemStartTime)));
+            }else{
+                line.append(QString::number(double(duringTime) / double(m_i64SystemStopTime - m_i64SystemStartTime)));
+            }
         }else if(m_eUserViewType == DISTURB_NOISE_TABLE){
             //TODO:干扰信号测量表格
             line.append("");
@@ -420,4 +465,15 @@ void WBSignalDetectModel::UpdateData()
         m_DisplayData.append(line);
     }
     endResetModel();
+}
+
+void WBSignalDetectModel::SetStartTime()
+{
+    m_i64SystemStartTime = QDateTime::currentMSecsSinceEpoch();
+    m_i64SystemStopTime = m_i64SystemStartTime;
+}
+
+void WBSignalDetectModel::SetStopTime()
+{
+    m_i64SystemStopTime = QDateTime::currentMSecsSinceEpoch();
 }

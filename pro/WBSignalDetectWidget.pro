@@ -14,7 +14,8 @@ SOURCES += \
     ../src/signaldetecttableview.cpp \
     ../src/testmain.cpp \
     ../src/wbsignaldetectmodel.cpp \
-    ../src/wbsignaldetectwidget.cpp
+    ../src/wbsignaldetectwidget.cpp \
+    ../src/popupparamset.cpp
 
 HEADERS += \
     ../inc/disturbnoisetableview.h \
@@ -23,7 +24,8 @@ HEADERS += \
     ../inc/signaldetecttableview.h \
     ../inc/wbsignaldetectmodel.h \
     ../inc/WBSignalDetectWidget_global.h \
-    ../inc/wbsignaldetectwidget.h
+    ../inc/wbsignaldetectwidget.h \
+    ../inc/popupparamset.h
 
 DESTDIR = ../bin/
 
@@ -42,5 +44,6 @@ PRE_TARGETDEPS += 'C:/Program Files (x86)/Intel/oneAPI/ipp/2021.9.0/lib/intel64/
 
 FORMS += \
     ../ui/mainwindow.ui \
-    ../ui/wbsignaldetectwidget.ui
+    ../ui/wbsignaldetectwidget.ui \
+    ../ui/popupparamset.ui
 

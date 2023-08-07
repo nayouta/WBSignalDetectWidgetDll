@@ -21,5 +21,7 @@ private:
     Ui::MainWindow *ui;
     WBSignalDetectWidget* m_pSigDetectWidget = nullptr;
 
+    float* m_pFFTIn = nullptr;
+
 };
 #endif // MAINWINDOW_H

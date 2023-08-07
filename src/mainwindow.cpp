@@ -1,6 +1,11 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QFileInfo>
+#include <QFile>
+#include <QTextStream>
+#include <QList>
+
 #include "wbsignaldetectwidget.h"
 
 #include "wbsignaldetectmodel.h"
@@ -11,26 +16,40 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    m_pSigDetectWidget = new WBSignalDetectWidget(this);
+    //读取截取的数据
+    QFileInfo dataFileInfo("output.txt");
+    if(!dataFileInfo.exists()){
+        return;
+    }
+    QFile dataFile("output.txt");
+    if(!dataFile.open(QIODevice::ReadOnly | QIODevice::Text)){
+        return;
+    }
+    QTextStream outStream(&dataFile);
+    QString allData = outStream.readAll();
+    dataFile.close();
 
-    this->setCentralWidget(m_pSigDetectWidget);
-
-    //测试假数据
-    float fftin[1024];
-    for (int index = 0; index < 1024; ++index){
-        if(index < 512){
-            fftin[index] = index;
-        }else{
-            fftin[index] = 1023 - index;
-        }
+    auto fullDataList = allData.split(" ");
+    //当前数据为1024阶FFT，单包点数为640，故取头部640长度的原始数据作为测试
+    m_pFFTIn = new float[640];
+    for(int index = 0; index < 640; ++index){
+        m_pFFTIn[index] = fullDataList[index].toFloat();
     }
 
 
-    emit m_pSigDetectWidget->pGenericModel()->sigTriggerUpdateData(fftin, 32, 1024, 100, 10);
+    m_pSigDetectWidget = new WBSignalDetectWidget(this);
+
+    this->setCentralWidget(m_pSigDetectWidget);
+    emit m_pSigDetectWidget->sigSetValidAmpThreshold(500);
+    emit m_pSigDetectWidget->sigTriggerSignalDetect(m_pFFTIn, 32, 640, 15e6, 30e6);
 }
 
 MainWindow::~MainWindow()
 {
+    if(m_pFFTIn){
+        delete[] m_pFFTIn;
+    }
+
     delete ui;
 }
 

@@ -15,16 +15,17 @@
 
 typedef struct SignalInfo
 {
-    int CentFreq;
-    int Bound;
+    int CentFreq;       //HZ
+    int Bound;          //HZ
     float Snr;
     float CodeRate;
+    float Amp;
 }SignalInfoStr;
 
 struct DisplaySignalCharacter{
     SignalInfo Info;
-    qint64 startTime;       //时间戳   ms级  //TODO:根据实际需要调整
-    qint64 stopTime;
+    qint64 startTime = 0;       //时间戳   ms级  //TODO:根据实际需要调整
+    qint64 stopTime = 0;
 };
 
 enum MODEL_USER_VIEW{
@@ -54,19 +55,26 @@ public:
     MODEL_USER_VIEW UserViewType() const;
     void setUserViewType(MODEL_USER_VIEW newEUserViewType);
 
+    void setBandwidthThreshold(uint newBandwidthThreshold);
+
+    void setActiveThreshold(uint newActiveThreshold);
+
+    void setFreqPointThreshold(uint newFreqPointThreshold);
+
 signals:
-    //InStep:平滑滑窗的宽度   length:FFT阶数（也就是FFT的点数） Freqency:输入中心频点 Bandwidth 当前FFT覆盖带宽
-    void sigTriggerUpdateData(float *FFtin, int InStep, int length, int Freqency, int BandWidth);
     void sigTriggerRefreshData();
 
 public slots:
     //更新表格中数据
     void UpdateData();
+    void SetStartTime();
+    void SetStopTime();
 
-private slots:
+    void setFThreshold(float newFThreshold);
+    //InStep:平滑滑窗的宽度   length:FFT的点数 Freqency:输入中心频点 Bandwidth 当前FFT覆盖带宽
     int FindSignal(float *FFtin, int InStep, int length, int Freqency, int BandWidth);
-private:
 
+private:
     int SampleDownFromInBuf(short* inBuf, int len, short * outBuf,int factor);
 
     bool findPeakIteratively(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
@@ -86,6 +94,16 @@ private:
     QList<QVector<QString>> m_DisplayData;
 
     QFont m_Font;
+
+    int m_iFullBandWidth;       //总带宽       HZ
+
+    qint64 m_i64SystemStartTime = 0;
+
+    qint64 m_i64SystemStopTime = 0;
+
+    uint m_FreqPointThreshold = 0;
+    uint m_BandwidthThreshold = 0;
+    uint m_ActiveThreshold = 0;
 };
 
 #endif // WBSIGNALDETECTMODEL_H
