@@ -1,5 +1,10 @@
 #include "../inc/wbsignaldetectmodel.h"
 #include <QDateTime>
+#include <QTimer>
+
+//考虑使用全局量记录频点识别门限以及带宽识别门限
+uint g_FreqPointThreshold = 0;      //单位为Hz
+uint g_BandwidthThreshold = 0;      //单位为Hz
 
 WBSignalDetectModel::WBSignalDetectModel(QObject *parent)
     : QAbstractTableModel(parent)
@@ -7,11 +12,10 @@ WBSignalDetectModel::WBSignalDetectModel(QObject *parent)
     m_Font.setFamily("Microsoft Yahei");
     //TODO:根据实际显示结果调整
     m_Font.setPixelSize(17);
-
-    m_i64SystemStartTime = QDateTime::currentMSecsSinceEpoch();
-    m_i64SystemStopTime = m_i64SystemStartTime;
-
     connect(this, &WBSignalDetectModel::sigTriggerRefreshData, this, &WBSignalDetectModel::UpdateData);
+
+    m_pSignalActiveChecker = new QTimer(this);
+    connect(m_pSignalActiveChecker, &QTimer::timeout, this, &WBSignalDetectModel::slotCheckSignalActive);
 }
 
 QVariant WBSignalDetectModel::headerData(int section, Qt::Orientation orientation, int role) const
@@ -40,6 +44,8 @@ QVariant WBSignalDetectModel::headerData(int section, Qt::Orientation orientatio
                 return "占用带宽";
             case 7 :
                 return "信号占用度";
+            case 8 :
+                return "合法信号";
             default :
                 return "";
             }
@@ -95,7 +101,7 @@ int WBSignalDetectModel::rowCount(const QModelIndex &parent) const
 
     //当前总列数为存活信号与完成信号的总长度
     //TODO:其他场景情况根据显示需要增加逻辑，如仅显示存活信号或仅显示已完成信号等，或者过多长时间后在删除对应记录等
-    return m_mapActiveSignalCharacter.keys().length() + m_lstFinishedSignalCharacter.length();
+    return m_mapValidSignalCharacter.keys().length();
 }
 
 int WBSignalDetectModel::columnCount(const QModelIndex &parent) const
@@ -108,7 +114,7 @@ int WBSignalDetectModel::columnCount(const QModelIndex &parent) const
         return 0;
     }
     if(m_eUserViewType == SIGNAL_DETECT_TABLE){
-        return 8;
+        return 9;
     }
     if(m_eUserViewType == DISTURB_NOISE_TABLE){
         return 4;
@@ -118,6 +124,29 @@ int WBSignalDetectModel::columnCount(const QModelIndex &parent) const
     }
     return 0;
 }
+
+bool WBSignalDetectModel::setData(const QModelIndex &index, const QVariant &value, int role) {
+    if (index.isValid() && role == Qt::EditRole) {
+        QStringList &rowData = m_DisplayData[index.row()];
+        rowData[index.column()] = value.toString();
+        emit dataChanged(index, index);
+        return true;
+    }
+    return false;
+}
+
+Qt::ItemFlags WBSignalDetectModel::flags(const QModelIndex &index) const {
+    if (!index.isValid())
+        return Qt::NoItemFlags;
+
+    Qt::ItemFlags flags = Qt::ItemIsSelectable | Qt::ItemIsEnabled;
+
+    if (index.column() == 8 && m_eUserViewType == SIGNAL_DETECT_TABLE)      //仅信号选择表格的最后一列可编辑
+        flags |= Qt::ItemIsEditable;
+
+    return flags;
+}
+
 
 QVariant WBSignalDetectModel::data(const QModelIndex &index, int role) const
 {
@@ -143,10 +172,19 @@ QVariant WBSignalDetectModel::data(const QModelIndex &index, int role) const
 
 int WBSignalDetectModel::FindSignal(float *FFtin, int InStep, int length, int Freqency, int BandWidth)
 {
-    int AvgCnt = 0;
+    if(m_i64SystemStartTime == 0){
+        m_i64SystemStartTime = QDateTime::currentMSecsSinceEpoch();
+        m_i64SystemStopTime = m_i64SystemStartTime;
+    }
+
+    if(!m_pSignalActiveChecker->isActive()){
+        m_pSignalActiveChecker->start(1000);
+    }
+
     Ipp32f * FFtAvg = ippsMalloc_32f(length);
     m_iFullBandWidth = BandWidth;
     //暂时跳过进行fft平滑的步骤
+//    int AvgCnt = 0;
 //    //获取活滑动Step个点的平均FFt波形
 //    for (int i = 0; i < length; i++)
 //    {
@@ -178,46 +216,62 @@ int WBSignalDetectModel::FindSignal(float *FFtin, int InStep, int length, int Fr
     }
 
     bool foundFlag = false;
-    //与已积累下来的保持存活信号进行比较 map
-    QMap<int, DisplaySignalCharacter> newAddSignalTempMap;
-    QList<int> curSignalFreqTempList;
-    foreach (const auto& curInfo, m_lstSignalInfo) {
-        curSignalFreqTempList.append(curInfo.CentFreq);
-        foreach (const auto& activeFreq, m_mapActiveSignalCharacter.keys()) {
-            if(curInfo.CentFreq == activeFreq){     //已有的信号直接跳过
+    //三种情况：当前信号 1、从未有过  2、一直都有  3、曾有现停
+    foreach (const SignalInfo& curInfo, m_lstSignalInfo) {
+        DisplaySignalCharacter newSignalChar;
+        foreach (const SignalBaseChar& curBaseInfo, m_mapValidSignalCharacter.keys()) {
+            if(curInfo.BaseInfo == curBaseInfo){     //曾有现停，增加累计list的末尾节点，记录新的起始时间
                 foundFlag = true;
-                break;
-            }
+                if(m_mapValidSignalCharacter[curBaseInfo].constLast().stopTime != 0){        //已经停止过一次
+                    newSignalChar.Info = curInfo;
+                    newSignalChar.startTime = QDateTime::currentMSecsSinceEpoch();
+                    m_mapValidSignalCharacter[curBaseInfo].append(newSignalChar);
+                }
+            }else{}      //一直都有，不做处理
+            break;
         }
-        //添加新信号
+        //从未有过：增加map中的键值对，新增累计list
         if(!foundFlag){
-            DisplaySignalCharacter newSignalChar;
             newSignalChar.Info = curInfo;
             newSignalChar.startTime = QDateTime::currentMSecsSinceEpoch();
-            newSignalChar.stopTime = 0;
-            newAddSignalTempMap.insert(curInfo.CentFreq, newSignalChar);
-        }
-    }
-    m_mapActiveSignalCharacter.insert(newAddSignalTempMap);
-    //未找到的信号说明已经结束，更新结束时间，并保存到结束list中
-    foreach (const auto& activeFreq, m_mapActiveSignalCharacter.keys()) {
-        if(!curSignalFreqTempList.contains(activeFreq)){
-            m_mapActiveSignalCharacter[activeFreq].stopTime = QDateTime::currentMSecsSinceEpoch();
-            m_lstFinishedSignalCharacter.append(m_mapActiveSignalCharacter.take(activeFreq));
+            QList<DisplaySignalCharacter> newSignalList;
+            newSignalList.append(newSignalChar);
+            m_mapValidSignalCharacter.insert(curInfo.BaseInfo, newSignalList);
         }
     }
     ippsFree(FFtAvg);
-
-    emit sigTriggerRefreshData();
-
+    UpdateData();
     return ret;
 }
 
-int WBSignalDetectModel::SampleDownFromInBuf(short *inBuf, int len, short *outBuf, int factor){
-    int outBufLength = 0;
-    int phase = 0;
-    ippsSampleDown_16s(inBuf, len, outBuf,&outBufLength,factor, &phase);
-    return outBufLength;
+void WBSignalDetectModel::SlotTriggerLegalFreqSet(bool checked)
+{
+    //仅供signalDetecttable使用
+    if(m_eUserViewType != SIGNAL_DETECT_TABLE){
+        m_bIsSettingLegalFreqFlag = false;
+        return;
+    }
+
+    m_bIsSettingLegalFreqFlag = checked;
+    if(!checked){
+        //完成修改后根据已修改的m_DisplayData中的状态修改map中对应数据的值
+        foreach (const auto& signalIndex, m_DisplayData) {
+            if(signalIndex.length() >= 9 && signalIndex.at(8) == "否"){
+                //LZMK:反向从用于显示的m_DisplayData中获取用于查询map的key，存在一些问题
+                //TODO:当显示频点和带宽的数据的单位发生变化时需要同时变更
+                int centerFreq = signalIndex.at(1).toInt();
+                int bandWidth = signalIndex.at(3).toInt();
+                SignalBaseChar curKey;
+                curKey.Bound = bandWidth;
+                curKey.CentFreq = centerFreq;
+                foreach (const auto& keyOfMap, m_mapValidSignalCharacter.keys()) {
+                    if(keyOfMap.CentFreq == curKey.CentFreq && keyOfMap.Bound == curKey.Bound){
+                        m_mapValidSignalCharacter[keyOfMap].first().isLegal = false;
+                    }
+                }
+            }
+        }
+    }
 }
 
 bool WBSignalDetectModel::findPeakIteratively(Ipp32f * FFtAvg, int length, int Freqency, int BandWidth)
@@ -278,8 +332,8 @@ bool WBSignalDetectModel::findPeakIteratively(Ipp32f * FFtAvg, int length, int F
 
     //计算信号属性
     SignalInfoStr currentSignalInfo;
-    currentSignalInfo.Bound = (RightAddr - LeftAddr)*(float)((float)BandWidth / (float)length);
-    currentSignalInfo.CentFreq = Freqency + ((RightAddr+ LeftAddr)/2 - length / 2)*(float)((float)BandWidth / (float)length);
+    currentSignalInfo.BaseInfo.Bound = (RightAddr - LeftAddr)*(float)((float)BandWidth / (float)length);
+    currentSignalInfo.BaseInfo.CentFreq = Freqency + ((RightAddr+ LeftAddr)/2 - length / 2)*(float)((float)BandWidth / (float)length);
     currentSignalInfo.Amp = FFtMax;
     //获取信号平均功率
     ippsMean_32f(&FFtAvg[LeftAddr], RightAddr - LeftAddr + 1, &SignalPower, ippAlgHintFast);
@@ -291,7 +345,7 @@ bool WBSignalDetectModel::findPeakIteratively(Ipp32f * FFtAvg, int length, int F
     m_lstSignalInfo.append(currentSignalInfo);
 
     //后续处理时全带宽也会缩短
-    int notDealedBandWidth = BandWidth - currentSignalInfo.Bound;
+    int notDealedBandWidth = BandWidth - currentSignalInfo.BaseInfo.Bound;
     int notDealedBandCenterFreq = Freqency + RightAddr * (float)BandWidth / (float)length;
     return findPeakIteratively(FFtAvg + (RightAddr + 1), length - (RightAddr + 1), notDealedBandCenterFreq, notDealedBandWidth);
 }
@@ -354,8 +408,8 @@ bool WBSignalDetectModel::findPeakCyclically(Ipp32f * FFtAvg, int length, int Fr
 
         //计算信号属性
         SignalInfoStr currentSignalInfo;
-        currentSignalInfo.Bound = (RightAddr - LeftAddr)*(float)((float)BandWidth / (float)length);
-        currentSignalInfo.CentFreq = Freqency + ((RightAddr+ LeftAddr)/2 - length / 2)*(float)((float)BandWidth / (float)length);
+        currentSignalInfo.BaseInfo.Bound = (RightAddr - LeftAddr)*(float)((float)BandWidth / (float)length);
+        currentSignalInfo.BaseInfo.CentFreq = Freqency + ((RightAddr+ LeftAddr)/2 - length / 2)*(float)((float)BandWidth / (float)length);
         currentSignalInfo.Amp = FFtMax;
         //获取信号平均功率
         ippsMean_32f(&FFtAvg[LeftAddr], RightAddr - LeftAddr + 1, &SignalPower, ippAlgHintFast);
@@ -371,6 +425,23 @@ bool WBSignalDetectModel::findPeakCyclically(Ipp32f * FFtAvg, int length, int Fr
     return true;
 }
 
+void WBSignalDetectModel::reAlignValidSignalCharacterMap()
+{
+
+}
+
+void WBSignalDetectModel::slotCheckSignalActive()
+{
+    qint64 nowTime = QDateTime::currentMSecsSinceEpoch();
+    foreach (const auto& existKey, m_mapValidSignalCharacter.keys()) {
+        if(m_mapValidSignalCharacter[existKey].constLast().stopTime == 0 &&
+            nowTime - m_mapValidSignalCharacter[existKey].constLast().stopTime >= m_ActiveThreshold * 1000){
+            m_mapValidSignalCharacter[existKey].last().stopTime = nowTime;
+        }
+    }
+    UpdateData();
+}
+
 void WBSignalDetectModel::setFThreshold(float newFThreshold)
 {
     m_fThreshold = newFThreshold;
@@ -378,7 +449,7 @@ void WBSignalDetectModel::setFThreshold(float newFThreshold)
 
 void WBSignalDetectModel::setFreqPointThreshold(uint newFreqPointThreshold)
 {
-    m_FreqPointThreshold = newFreqPointThreshold;
+    g_FreqPointThreshold = newFreqPointThreshold;
 }
 
 void WBSignalDetectModel::setActiveThreshold(uint newActiveThreshold)
@@ -388,7 +459,7 @@ void WBSignalDetectModel::setActiveThreshold(uint newActiveThreshold)
 
 void WBSignalDetectModel::setBandwidthThreshold(uint newBandwidthThreshold)
 {
-    m_BandwidthThreshold = newBandwidthThreshold;
+    g_BandwidthThreshold = newBandwidthThreshold;
 }
 
 MODEL_USER_VIEW WBSignalDetectModel::UserViewType() const
@@ -403,54 +474,71 @@ void WBSignalDetectModel::setUserViewType(MODEL_USER_VIEW newEUserViewType)
 
 void WBSignalDetectModel::UpdateData()
 {
+    if(m_bIsSettingLegalFreqFlag){
+        return;
+    }
+
     beginResetModel();
     m_DisplayData.clear();
-    //对需显示的数据进行拼合
-    QList<DisplaySignalCharacter> displaySingalLst;
-    displaySingalLst.append(m_mapActiveSignalCharacter.values());
-    displaySingalLst.append(m_lstFinishedSignalCharacter);
 
     //重置model中的数据
-    for (int i = 0; i < rowCount(); i++) {
+    int i = 0;
+    foreach (const auto& curSigBaseInfo, m_mapValidSignalCharacter.keys()) {
+        ++i;
         //根据当前用于显示的view类型进行区分
         if(m_eUserViewType == NOT_USED){
             break;
         }
         QVector<QString> line;
-        line.append(QString("%1").arg(i+1));
-        line.append(QString::number(displaySingalLst.at(i).Info.CentFreq));
+        line.append(QString("%1").arg(i));
+        line.append(QString::number(curSigBaseInfo.CentFreq));
         if(m_eUserViewType == SIGNAL_DETECT_TABLE){
-            //line.append(QString::number(displaySingalLst.at(i).Info));
-            line.append(QString::number(displaySingalLst.at(i).Info.Amp + 107));        //电平，采用107算法
-            line.append(QString::number(displaySingalLst.at(i).Info.Bound));        //带宽
-            QDateTime time;
-            time.setMSecsSinceEpoch(displaySingalLst.at(i).startTime);
-            line.append(time.toString("yyyy-MM-dd hh:mm:ss.zzz"));          //起始时间
-            time.setMSecsSinceEpoch(displaySingalLst.at(i).stopTime);
-            line.append(time.toString("yyyy-MM-dd hh:mm:ss.zzz"));      //结束时间
+            //line.append(QString::number(m_mapValidSignalCharacter.value(curSigBaseInfo).last().Info));
+            line.append(QString::number(m_mapValidSignalCharacter.value(curSigBaseInfo).constLast().Info.Amp + 107));        //电平，采用107算法
+            line.append(QString::number(m_mapValidSignalCharacter.value(curSigBaseInfo).constLast().Info.BaseInfo.Bound));        //带宽
 
-            if(m_iFullBandWidth <= 0 || m_iFullBandWidth < displaySingalLst.at(i).Info.Bound){
+            QDateTime time;
+            if(m_mapValidSignalCharacter.value(curSigBaseInfo).constFirst().startTime == 0){
                 line.append("");
             }else{
-                line.append(QString("%1%").arg(100 * displaySingalLst.at(i).Info.Bound / m_iFullBandWidth));        //占用带宽
+                time.setMSecsSinceEpoch(m_mapValidSignalCharacter.value(curSigBaseInfo).constFirst().startTime);
+                line.append(time.toString("MM-dd hh:mm:ss"));          //起始时间      //仅显示到s
+            }
+            if(m_mapValidSignalCharacter.value(curSigBaseInfo).constLast().stopTime == 0){
+                line.append("");
+            }else{
+                time.setMSecsSinceEpoch(m_mapValidSignalCharacter.value(curSigBaseInfo).constLast().stopTime);
+                line.append(time.toString("MM-dd hh:mm:ss"));      //结束时间          //仅显示到s
+            }
+
+            if(m_iFullBandWidth <= 0 || m_iFullBandWidth < m_mapValidSignalCharacter.value(curSigBaseInfo).constLast().Info.BaseInfo.Bound){
+                line.append("");
+            }else{
+                line.append(QString("%1%").arg(100 * double(m_mapValidSignalCharacter.value(curSigBaseInfo).constLast().Info.BaseInfo.Bound) / double(m_iFullBandWidth)));        //占用带宽
             }
 
             qint64 duringTime = 0;
             qint64 nowTime = QDateTime::currentMSecsSinceEpoch();
-            if(displaySingalLst.at(i).stopTime == 0){
-                duringTime = nowTime - displaySingalLst.at(i).startTime;
-            }else{
-                duringTime = displaySingalLst.at(i).stopTime - displaySingalLst.at(i).startTime;
+            //计算一个确定频点带宽特征的信号在持续的总时间长度
+            foreach (const auto& curSigInfoInList, m_mapValidSignalCharacter.value(curSigBaseInfo)) {
+                if(curSigInfoInList.stopTime == 0){
+                    duringTime += nowTime - curSigInfoInList.startTime;
+                    break;
+                }
+                duringTime += curSigInfoInList.stopTime - curSigInfoInList.startTime;
             }
             //信号占用度
             if(m_i64SystemStopTime == m_i64SystemStartTime){
-                line.append(QString::number(double(duringTime) / double(nowTime - m_i64SystemStartTime)));
+                line.append(QString("%1%").arg(100 * double(duringTime) / double(nowTime - m_i64SystemStartTime)));
             }else{
-                line.append(QString::number(double(duringTime) / double(m_i64SystemStopTime - m_i64SystemStartTime)));
+                line.append(QString("%1%").arg(100 * double(duringTime) / double(m_i64SystemStopTime - m_i64SystemStartTime)));
             }
+
+            //当前频点的信号是否合法记录在每个数据链的头部元素中
+            line.append(m_mapValidSignalCharacter.value(curSigBaseInfo).constFirst().isLegal ? QString("是") : QString("否"));
         }else if(m_eUserViewType == DISTURB_NOISE_TABLE){
             //TODO:干扰信号测量表格
-            line.append("");
+            line.append(QString::number(m_mapValidSignalCharacter.value(curSigBaseInfo).constLast().Info.Amp + 107));        //电平，采用107算法
             line.append("");
         }else if(m_eUserViewType == MAN_MADE_NOISE_TABLE){
             //TODO:电磁环境认为噪声电平测量表格
@@ -476,4 +564,26 @@ void WBSignalDetectModel::SetStartTime()
 void WBSignalDetectModel::SetStopTime()
 {
     m_i64SystemStopTime = QDateTime::currentMSecsSinceEpoch();
+}
+
+bool SignalBaseChar::operator==(const SignalBaseChar &other) const{
+    return (qAbs(this->CentFreq - other.CentFreq) < g_FreqPointThreshold) && (qAbs(this->Bound - other.Bound) < g_BandwidthThreshold);
+}
+
+bool SignalBaseChar::operator<(const SignalBaseChar &other) const{
+    if(qAbs(this->CentFreq - other.CentFreq) < g_FreqPointThreshold && qAbs(this->Bound - other.Bound) < g_BandwidthThreshold){
+        return false;
+    }
+
+    if(qAbs(this->CentFreq - other.CentFreq) < g_FreqPointThreshold){       //两值中心频点约等
+        if((this->Bound < other.Bound)){
+            return true;
+        }
+    }else{
+        //优先判断频点，然后判断带宽
+        if((this->CentFreq < other.CentFreq)){
+            return true;
+        }
+    }
+    return false;
 }

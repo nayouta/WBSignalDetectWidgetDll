@@ -33,9 +33,12 @@ signals:
     //记录最终完成检测时间
     void stopDetect();
     //单次数据传入触发处理
-    //InStep:平滑滑窗的宽度   length:FFT的点数 Freqency:输入中心频点 Bandwidth 当前FFT覆盖带宽
-    void sigTriggerSignalDetect(float *FFtin, int InStep, int length, int Freqency, int BandWidth);
-    //设置有效电平门限
+    void sigTriggerSignalDetect(float *FFtin,       //FFT输入数据
+                                int InStep,         //平滑滑窗的宽度
+                                int length,         //FFT的点数
+                                int Freqency,       //中心频点
+                                int BandWidth);     //当前FFT覆盖带宽
+    //设置有效电平门限   dBm
     void sigSetValidAmpThreshold(float amp);
 
 private:
@@ -58,6 +61,7 @@ private:
 private slots:
     void slotSetDetectParam(ParamSet param);
 
+    void on_pushButton_setLegalFreq_clicked(bool checked);
 };
 
 #endif // WBSIGNALDETECTWIDGET_H

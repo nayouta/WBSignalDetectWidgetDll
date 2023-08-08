@@ -55,9 +55,24 @@ void WBSignalDetectWidget::on_tabWidget_SignalDetectTable_currentChanged(int ind
 
 bool WBSignalDetectWidget::turnToCorrectTableModel()
 {
+
     if(m_pGenericModel == nullptr){
         return false;
     }
+
+    //默认直接切换当前tab也能触发写入合法信号的状态
+    ui->pushButton_setLegalFreq->setChecked(false);
+    if(ui->tabWidget_SignalDetectTable->currentIndex() != 0){
+        ui->pushButton_setLegalFreq->setEnabled(false);
+    }else{
+        ui->pushButton_setLegalFreq->setEnabled(true);
+    }
+    if(ui->tabWidget_SignalDetectTable->currentIndex() != 0){
+        ui->pushButton_setLegalFreq->hide();
+    }else{
+        ui->pushButton_setLegalFreq->show();
+    }
+
     switch (ui->tabWidget_SignalDetectTable->currentIndex()) {
     case 0:
         m_pGenericModel->setUserViewType(SIGNAL_DETECT_TABLE);
@@ -91,3 +106,16 @@ void WBSignalDetectWidget::on_pushButton_ParamSet_clicked()
     m_pPopupParamSet->setModal(true);
     m_pPopupParamSet->show();
 }
+
+void WBSignalDetectWidget::on_pushButton_setLegalFreq_clicked(bool checked)
+{
+    if(checked){
+        ui->pushButton_setLegalFreq->setText("完成设置");
+    }else{
+        ui->pushButton_setLegalFreq->setText("开始设置合法频点");
+    }
+    if(m_pGenericModel){
+        m_pGenericModel->SlotTriggerLegalFreqSet(checked);
+    }
+}
+
