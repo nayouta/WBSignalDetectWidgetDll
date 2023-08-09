@@ -30,9 +30,11 @@ class SignalDetectTableView : public QTableView
     Q_OBJECT
 public:
     explicit SignalDetectTableView(QWidget *parent = nullptr);
+    bool GenerateExcelTable(QString folderName);
 
 protected:
     virtual ~SignalDetectTableView();
+
 
 signals:
 

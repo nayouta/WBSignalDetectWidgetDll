@@ -62,6 +62,13 @@ private slots:
     void slotSetDetectParam(ParamSet param);
 
     void on_pushButton_setLegalFreq_clicked(bool checked);
+    void on_pushButton_cleanAllData_clicked();
+    void on_pushButton_GenerateDisturbSIgnal_clicked();
+    void on_pushButton_GenerateManMadeNoise_clicked();
+    void on_pushButton_GenerateElecEnvReport_clicked();
+    //默认配置文件保存在可执行文件同级目录下名称为 legalFreq.ini 文件中
+    void on_pushButton_importLegal_clicked();
+    void on_pushButton_ExportLegal_clicked();
 };
 
 #endif // WBSIGNALDETECTWIDGET_H

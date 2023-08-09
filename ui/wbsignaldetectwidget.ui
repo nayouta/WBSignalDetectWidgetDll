@@ -14,8 +14,8 @@
    <string>Form</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0">
-    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,1,0">
+   <item row="0" column="0" colspan="2">
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,1,0,0,0,0">
      <item>
       <widget class="QPushButton" name="pushButton_ParamSet">
        <property name="text">
@@ -37,9 +37,30 @@
       </spacer>
      </item>
      <item>
+      <widget class="QPushButton" name="pushButton_importLegal">
+       <property name="text">
+        <string>导入非法频点设置</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_ExportLegal">
+       <property name="text">
+        <string>导出非法频点设置</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_cleanAllData">
+       <property name="text">
+        <string>清理</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="pushButton_setLegalFreq">
        <property name="text">
-        <string>开始设置合法频点</string>
+        <string>开始设置非法频点</string>
        </property>
        <property name="checkable">
         <bool>true</bool>
@@ -48,12 +69,50 @@
      </item>
     </layout>
    </item>
-   <item row="1" column="0">
+   <item row="1" column="0" colspan="2">
     <widget class="QTabWidget" name="tabWidget_SignalDetectTable">
      <property name="currentIndex">
       <number>-1</number>
      </property>
     </widget>
+   </item>
+   <item row="2" column="1">
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <item>
+      <spacer name="horizontalSpacer_2">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_GenerateDisturbSIgnal">
+       <property name="text">
+        <string>保存干扰信号测量记录</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_GenerateManMadeNoise">
+       <property name="text">
+        <string>保存电磁环境人为噪声电平测量记录</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_GenerateElecEnvReport">
+       <property name="text">
+        <string>生成电磁环境测试报告</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>

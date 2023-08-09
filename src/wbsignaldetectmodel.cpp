@@ -1,6 +1,7 @@
 #include "../inc/wbsignaldetectmodel.h"
 #include <QDateTime>
 #include <QTimer>
+#include <QSettings>
 
 //考虑使用全局量记录频点识别门限以及带宽识别门限
 uint g_FreqPointThreshold = 0;      //单位为Hz
@@ -98,10 +99,7 @@ int WBSignalDetectModel::rowCount(const QModelIndex &parent) const
 {
     if (parent.isValid())
         return 0;
-
-    //当前总列数为存活信号与完成信号的总长度
-    //TODO:其他场景情况根据显示需要增加逻辑，如仅显示存活信号或仅显示已完成信号等，或者过多长时间后在删除对应记录等
-    return m_mapValidSignalCharacter.keys().length();
+    return m_DisplayData.length();//m_mapValidSignalCharacter.keys().length();
 }
 
 int WBSignalDetectModel::columnCount(const QModelIndex &parent) const
@@ -141,7 +139,7 @@ Qt::ItemFlags WBSignalDetectModel::flags(const QModelIndex &index) const {
 
     Qt::ItemFlags flags = Qt::ItemIsSelectable | Qt::ItemIsEnabled;
 
-    if (index.column() == 8 && m_eUserViewType == SIGNAL_DETECT_TABLE)      //仅信号选择表格的最后一列可编辑
+    if (index.column() == 8 && m_eUserViewType == SIGNAL_DETECT_TABLE && m_bIsSettingLegalFreqFlag)      //仅信号选择表格的最后一列，且当前处于正在编辑合法信号的暂停状态时可编辑
         flags |= Qt::ItemIsEditable;
 
     return flags;
@@ -256,7 +254,7 @@ void WBSignalDetectModel::SlotTriggerLegalFreqSet(bool checked)
     if(!checked){
         //完成修改后根据已修改的m_DisplayData中的状态修改map中对应数据的值
         foreach (const auto& signalIndex, m_DisplayData) {
-            if(signalIndex.length() >= 9 && signalIndex.at(8) == "否"){
+            if(signalIndex.length() >= 9){
                 //LZMK:反向从用于显示的m_DisplayData中获取用于查询map的key，存在一些问题
                 //TODO:当显示频点和带宽的数据的单位发生变化时需要同时变更
                 int centerFreq = signalIndex.at(1).toInt();
@@ -266,12 +264,61 @@ void WBSignalDetectModel::SlotTriggerLegalFreqSet(bool checked)
                 curKey.CentFreq = centerFreq;
                 foreach (const auto& keyOfMap, m_mapValidSignalCharacter.keys()) {
                     if(keyOfMap.CentFreq == curKey.CentFreq && keyOfMap.Bound == curKey.Bound){
-                        m_mapValidSignalCharacter[keyOfMap].first().isLegal = false;
+                        if(signalIndex.at(8) == "否"){
+                            m_mapValidSignalCharacter[keyOfMap].first().isLegal = false;
+                        }else if(signalIndex.at(8) == "是"){
+                            m_mapValidSignalCharacter[keyOfMap].first().isLegal = true;
+                        }
+                        break;
                     }
                 }
             }
         }
     }
+}
+
+void WBSignalDetectModel::SlotCleanUp()
+{
+    //直接清理，不存在跨线程访问的问题
+    m_mapValidSignalCharacter.clear();
+}
+
+bool WBSignalDetectModel::SlotImportLegalFreqConf()
+{
+    QSettings legalSetting("legalFreq.ini",  QSettings::IniFormat);
+    auto groups = legalSetting.childGroups();
+    foreach (const auto& curGroup, groups) {
+        legalSetting.beginGroup(curGroup);
+        int centerFreq = legalSetting.value("centerFreq").toInt();
+        int bandWidth = legalSetting.value("bandWidth").toInt();
+        foreach (const auto& keyOfMap, m_mapValidSignalCharacter.keys()) {
+            if(keyOfMap.CentFreq == centerFreq && keyOfMap.Bound == bandWidth){
+                m_mapValidSignalCharacter[keyOfMap].first().isLegal = false;
+                break;
+            }
+        }
+        legalSetting.endGroup();
+    }
+
+    return true;
+}
+
+bool WBSignalDetectModel::SlotExportLegalFreqConf()
+{
+    QSettings legalSetting("legalFreq.ini",  QSettings::IniFormat);
+
+    QString groupName = "IllegalFreqGroup";
+    int groupIndex = 0;
+    foreach (const auto& keyOfMap, m_mapValidSignalCharacter.keys()) {
+        if(m_mapValidSignalCharacter[keyOfMap].first().isLegal == false){
+            legalSetting.beginGroup(groupName + QString::number(groupIndex));
+            legalSetting.setValue("centerFreq", m_mapValidSignalCharacter[keyOfMap].first().Info.BaseInfo.CentFreq);
+            legalSetting.setValue("bandWidth", m_mapValidSignalCharacter[keyOfMap].first().Info.BaseInfo.Bound);
+            legalSetting.endGroup();
+            groupIndex += 1;
+        }
+    }
+    return true;
 }
 
 bool WBSignalDetectModel::findPeakIteratively(Ipp32f * FFtAvg, int length, int Freqency, int BandWidth)
@@ -536,10 +583,14 @@ void WBSignalDetectModel::UpdateData()
 
             //当前频点的信号是否合法记录在每个数据链的头部元素中
             line.append(m_mapValidSignalCharacter.value(curSigBaseInfo).constFirst().isLegal ? QString("是") : QString("否"));
+            m_DisplayData.append(line);
         }else if(m_eUserViewType == DISTURB_NOISE_TABLE){
             //TODO:干扰信号测量表格
             line.append(QString::number(m_mapValidSignalCharacter.value(curSigBaseInfo).constLast().Info.Amp + 107));        //电平，采用107算法
             line.append("");
+            if(!m_mapValidSignalCharacter.value(curSigBaseInfo).constFirst().isLegal){
+                m_DisplayData.append(line);
+            }
         }else if(m_eUserViewType == MAN_MADE_NOISE_TABLE){
             //TODO:电磁环境认为噪声电平测量表格
             line.append("");
@@ -549,8 +600,8 @@ void WBSignalDetectModel::UpdateData()
             line.append("");
             line.append("");
             line.append("");
+            m_DisplayData.append(line);
         }
-        m_DisplayData.append(line);
     }
     endResetModel();
 }

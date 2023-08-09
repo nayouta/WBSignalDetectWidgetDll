@@ -1,11 +1,14 @@
 #include "wbsignaldetectwidget.h"
 #include "ui_wbsignaldetectwidget.h"
 
+#include <QFileDialog>
+
 #include <signaldetecttableview.h>
 #include <wbsignaldetectmodel.h>
 #include <manmadenoisetableview.h>
 #include <disturbnoisetableview.h>
 
+#include <QMessageBox>
 
 WBSignalDetectWidget::WBSignalDetectWidget(QWidget *parent) :
     QWidget(parent),
@@ -62,14 +65,13 @@ bool WBSignalDetectWidget::turnToCorrectTableModel()
 
     //默认直接切换当前tab也能触发写入合法信号的状态
     ui->pushButton_setLegalFreq->setChecked(false);
+    on_pushButton_setLegalFreq_clicked(false);
+
     if(ui->tabWidget_SignalDetectTable->currentIndex() != 0){
         ui->pushButton_setLegalFreq->setEnabled(false);
-    }else{
-        ui->pushButton_setLegalFreq->setEnabled(true);
-    }
-    if(ui->tabWidget_SignalDetectTable->currentIndex() != 0){
         ui->pushButton_setLegalFreq->hide();
     }else{
+        ui->pushButton_setLegalFreq->setEnabled(true);
         ui->pushButton_setLegalFreq->show();
     }
 
@@ -112,10 +114,91 @@ void WBSignalDetectWidget::on_pushButton_setLegalFreq_clicked(bool checked)
     if(checked){
         ui->pushButton_setLegalFreq->setText("完成设置");
     }else{
-        ui->pushButton_setLegalFreq->setText("开始设置合法频点");
+        ui->pushButton_setLegalFreq->setText("开始设置非法频点");
     }
     if(m_pGenericModel){
         m_pGenericModel->SlotTriggerLegalFreqSet(checked);
     }
 }
+
+
+void WBSignalDetectWidget::on_pushButton_cleanAllData_clicked()
+{
+    if(m_pGenericModel){
+        m_pGenericModel->SlotCleanUp();
+    }
+}
+
+
+void WBSignalDetectWidget::on_pushButton_GenerateDisturbSIgnal_clicked()
+{
+    //先将tabwidget转到对应的tab上
+    ui->tabWidget_SignalDetectTable->setCurrentIndex(1);
+    QFileDialog dialog;
+    QString selectedFolder = dialog.getExistingDirectory(this, tr("Select Directory"),
+                                                         QDir::currentPath(),
+                                                         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+
+    if (selectedFolder.isEmpty()) {
+        qDebug() << "File saving cancelled.";
+        return;
+    }
+    if(!m_pDisturbNoiseTable->GenerateExcelTable(selectedFolder)){
+        //TODO: 生成失败时的处理方法
+    }
+}
+
+
+void WBSignalDetectWidget::on_pushButton_GenerateManMadeNoise_clicked()
+{
+    //先将tabwidget转到对应的tab上
+    ui->tabWidget_SignalDetectTable->setCurrentIndex(2);
+    QFileDialog dialog;
+    QString selectedFolder = dialog.getExistingDirectory(this, tr("Select Directory"),
+                                                         QDir::currentPath(),
+                                                         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+
+    if (selectedFolder.isEmpty()) {
+        qDebug() << "File saving cancelled.";
+        return;
+    }
+    if(!m_pManMadeNoiseTable->GenerateExcelTable(selectedFolder)){
+        //TODO: 生成失败时的处理方法
+    }
+}
+
+
+void WBSignalDetectWidget::on_pushButton_GenerateElecEnvReport_clicked()
+{
+
+}
+
+void WBSignalDetectWidget::on_pushButton_importLegal_clicked()
+{
+    QMessageBox msgBox;
+    if(m_pGenericModel){
+        if(m_pGenericModel->SlotImportLegalFreqConf()){
+            msgBox.setText("导入成功！");
+            msgBox.exec();
+            return;
+        }
+    }
+    msgBox.setText("导入失败！");
+    msgBox.exec();
+
+}
+
+void WBSignalDetectWidget::on_pushButton_ExportLegal_clicked()
+{
+    QMessageBox msgBox;
+    if(m_pGenericModel){
+        m_pGenericModel->SlotExportLegalFreqConf();
+        msgBox.setText("导出成功！");
+        msgBox.exec();
+        return;
+    }
+    msgBox.setText("导出失败！");
+    msgBox.exec();
+}
+
 

@@ -11,6 +11,11 @@ ManMadeNoiseTableView::ManMadeNoiseTableView(QWidget *parent)
 
 }
 
+bool ManMadeNoiseTableView::GenerateExcelTable(QString folderName)
+{
+    return true;
+}
+
 ManMadeNoiseTableView::~ManMadeNoiseTableView()
 {
 

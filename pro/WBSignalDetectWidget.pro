@@ -1,4 +1,4 @@
-QT += widgets core gui
+QT += widgets core gui axcontainer
 
 #TEMPLATE = lib
 TEMPLATE = app
@@ -47,3 +47,7 @@ FORMS += \
     ../ui/wbsignaldetectwidget.ui \
     ../ui/popupparamset.ui
 
+QXLSX_PARENTPATH=../3rdparty/QXlsx/         # current QXlsx path is . (. means curret directory)
+QXLSX_HEADERPATH=../3rdparty/QXlsx/header/  # current QXlsx header path is ./header/
+QXLSX_SOURCEPATH=../3rdparty/QXlsx/source/  # current QXlsx source path is ./source/
+include(../3rdparty/QXlsx/QXlsx.pri)

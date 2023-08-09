@@ -1,6 +1,11 @@
 #include "signaldetecttableview.h"
 
 #include <QHeaderView>
+#include <QFileInfo>
+
+#include "xlsxdocument.h"
+
+using namespace QXlsx;
 
 SignalDetectTableView::SignalDetectTableView(QWidget *parent)
     : QTableView{parent}
@@ -11,6 +16,34 @@ SignalDetectTableView::SignalDetectTableView(QWidget *parent)
     this->verticalHeader()->hide();
     //tableview直接与对应的delegate绑定
     setItemDelegateForColumn(8, new ComboBoxDelegate(this));
+}
+
+bool SignalDetectTableView::GenerateExcelTable(QString folderName)
+{
+    QString fileName = folderName + "/信号检测列表" + QDateTime::currentDateTime().toString(" yyyy-MM-dd hh：mm：ss") + ".xlsx";
+    QXlsx::Format borderFormat;
+    borderFormat.setBorderStyle(QXlsx::Format::BorderThin);
+
+    QXlsx::Document xlsx;
+    // Write column headers
+    QHeaderView *headerView = this->horizontalHeader();
+    for (int col = 0; col < this->model()->columnCount(); ++col) {
+        QString headerText = headerView->model()->headerData(col, Qt::Horizontal, Qt::DisplayRole).toString();
+        xlsx.write(1, col + 1, headerText, borderFormat);
+    }
+
+    // Write table data
+    for (int row = 0; row < this->model()->rowCount(); ++row) {
+        for (int col = 0; col < this->model()->columnCount(); ++col) {
+            auto item = this->model()->index(row, col);
+            if (item.isValid()) {
+                xlsx.write(row + 2, col + 1, this->model()->data(item), borderFormat);
+            }
+        }
+    }
+
+    // Save the Excel file
+    return xlsx.saveAs(fileName);
 }
 
 SignalDetectTableView::~SignalDetectTableView(){

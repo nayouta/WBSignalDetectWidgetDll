@@ -82,6 +82,11 @@ public slots:
     int FindSignal(float *FFtin, int InStep, int length, int Freqency, int BandWidth);
     //控制进入合法频点设置阶段flag，正在修改合法频点属性时不更新界面元素，完成修改时更新map
     void SlotTriggerLegalFreqSet(bool checked);
+    //清理当前map中全部数据，开始重新计算
+    void SlotCleanUp();
+    //管理合法频点设置
+    bool SlotImportLegalFreqConf();
+    bool SlotExportLegalFreqConf();
 
 private:
     bool findPeakIteratively(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
