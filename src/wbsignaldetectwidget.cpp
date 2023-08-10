@@ -162,7 +162,7 @@ void WBSignalDetectWidget::on_pushButton_GenerateManMadeNoise_clicked()
         qDebug() << "File saving cancelled.";
         return;
     }
-    if(!m_pManMadeNoiseTable->GenerateExcelTable(selectedFolder)){
+    if(!m_pManMadeNoiseTable->GenerateExcelTable(selectedFolder, m_pGenericModel->mapExistTypicalFreqNoiseRecordAmount())){
         //TODO: 生成失败时的处理方法
     }
 }

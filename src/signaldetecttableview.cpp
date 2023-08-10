@@ -21,15 +21,17 @@ SignalDetectTableView::SignalDetectTableView(QWidget *parent)
 bool SignalDetectTableView::GenerateExcelTable(QString folderName)
 {
     QString fileName = folderName + "/信号检测列表" + QDateTime::currentDateTime().toString(" yyyy-MM-dd hh：mm：ss") + ".xlsx";
-    QXlsx::Format borderFormat;
-    borderFormat.setBorderStyle(QXlsx::Format::BorderThin);
+    QXlsx::Format format;
+    format.setHorizontalAlignment(QXlsx::Format::AlignHCenter);
+    format.setVerticalAlignment(QXlsx::Format::AlignVCenter);
+    format.setBorderStyle(QXlsx::Format::BorderThin);
 
     QXlsx::Document xlsx;
     // Write column headers
     QHeaderView *headerView = this->horizontalHeader();
     for (int col = 0; col < this->model()->columnCount(); ++col) {
         QString headerText = headerView->model()->headerData(col, Qt::Horizontal, Qt::DisplayRole).toString();
-        xlsx.write(1, col + 1, headerText, borderFormat);
+        xlsx.write(1, col + 1, headerText, format);
     }
 
     // Write table data
@@ -37,7 +39,7 @@ bool SignalDetectTableView::GenerateExcelTable(QString folderName)
         for (int col = 0; col < this->model()->columnCount(); ++col) {
             auto item = this->model()->index(row, col);
             if (item.isValid()) {
-                xlsx.write(row + 2, col + 1, this->model()->data(item), borderFormat);
+                xlsx.write(row + 2, col + 1, this->model()->data(item), format);
             }
         }
     }

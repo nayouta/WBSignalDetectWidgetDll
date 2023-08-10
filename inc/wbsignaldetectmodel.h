@@ -68,6 +68,11 @@ public:
 
     void setFreqPointThreshold(uint newFreqPointThreshold);
 
+    QList<int> lstTypicalFreq() const;
+    void setLstTypicalFreq(const QList<int> &newLstTypicalFreq);
+
+    QMap<int, int> mapExistTypicalFreqNoiseRecordAmount() const;
+
 signals:
     void sigTriggerRefreshData();
 
@@ -91,13 +96,18 @@ public slots:
 private:
     bool findPeakIteratively(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
     bool findPeakCyclically(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
+    bool findNoiseCharaAroundTypicalFreq(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
 
     QTimer* m_pSignalActiveChecker = nullptr;
 
     //当前采集到的信号列表
     QList<SignalInfo> m_lstSignalInfo;
     //积累下来信号 key: SignalBaseChar ，头部节点为首次识别到该频点时的记录，需频点与带宽都满足区分阈值内才能算作有效信号
+    //TODO: 可能需要长时间使用，需要设置一个处理中间数据的行为，可以利用1s的定时器，定时清理map中的list的中段数据，仅保留头尾元素
     QMap<SignalBaseChar, QList<DisplaySignalCharacter>> m_mapValidSignalCharacter;
+    //用于统计人为噪声（底噪）在各个频点时间内的表现形式 key: 典型频率点
+    QMap<int, QList<DisplaySignalCharacter>> m_mapManMadeNoiseCharacter;
+
     //TODO:用于完成单次信号分析处理后，重新计算中心频点key，修改key后会影响界面上的中心频点的显示
     void reAlignValidSignalCharacterMap();
 
@@ -118,6 +128,12 @@ private:
     uint m_ActiveThreshold = 0;         //单位为s
 
     bool m_bIsSettingLegalFreqFlag = false;
+
+    QList<int> m_lstTypicalFreq;        //记录当前典型频率点
+
+    int m_iCheckBandAroundTypicalFreq = 2e6;    //默认检测典型频率点周围2m范围内信号的噪声特性
+
+    qint64 m_iFindNoiseCharaTimeGap = 0;
 
 private slots:
     void slotCheckSignalActive();
