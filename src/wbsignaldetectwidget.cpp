@@ -7,6 +7,7 @@
 #include <wbsignaldetectmodel.h>
 #include <manmadenoisetableview.h>
 #include <disturbnoisetableview.h>
+#include "typicalfreqsetwidget.h"
 
 #include <QMessageBox>
 
@@ -35,6 +36,10 @@ WBSignalDetectWidget::WBSignalDetectWidget(QWidget *parent) :
     m_pPopupParamSet->setModal(false);
     m_pPopupParamSet->hide();
 
+    m_pTypicalFreqSetWidget = new TypicalFreqSetWidget(this);
+    m_pTypicalFreqSetWidget->setModal(false);
+    m_pTypicalFreqSetWidget->hide();
+
     turnToCorrectTableModel();
 
     connect(this, &WBSignalDetectWidget::startDetect, m_pGenericModel, &WBSignalDetectModel::SetStartTime);
@@ -43,7 +48,8 @@ WBSignalDetectWidget::WBSignalDetectWidget(QWidget *parent) :
     connect(this, &WBSignalDetectWidget::sigSetValidAmpThreshold, m_pGenericModel,&WBSignalDetectModel::setFThreshold);
 
     connect(m_pPopupParamSet, &PopupParamSet::sigUpdateParam, this, &WBSignalDetectWidget::slotSetDetectParam);
-
+    connect(m_pTypicalFreqSetWidget, &TypicalFreqSetWidget::sigHaveTypicalFreq,
+            m_pGenericModel, &WBSignalDetectModel::setMapTypicalFreqAndItsTestFreq);
 }
 
 WBSignalDetectWidget::~WBSignalDetectWidget()
@@ -53,6 +59,7 @@ WBSignalDetectWidget::~WBSignalDetectWidget()
 
 void WBSignalDetectWidget::on_tabWidget_SignalDetectTable_currentChanged(int index)
 {
+    Q_UNUSED(index);
     turnToCorrectTableModel();
 }
 
@@ -201,4 +208,11 @@ void WBSignalDetectWidget::on_pushButton_ExportLegal_clicked()
     msgBox.exec();
 }
 
+
+
+void WBSignalDetectWidget::on_pushButton_TypicalFreqSet_clicked()
+{
+    m_pTypicalFreqSetWidget->setModal(true);
+    m_pTypicalFreqSetWidget->show();
+}
 

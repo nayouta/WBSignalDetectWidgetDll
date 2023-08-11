@@ -15,7 +15,8 @@ SOURCES += \
     ../src/testmain.cpp \
     ../src/wbsignaldetectmodel.cpp \
     ../src/wbsignaldetectwidget.cpp \
-    ../src/popupparamset.cpp
+    ../src/popupparamset.cpp \
+    ../src/typicalfreqsetwidget.cpp
 
 HEADERS += \
     ../inc/disturbnoisetableview.h \
@@ -25,7 +26,8 @@ HEADERS += \
     ../inc/wbsignaldetectmodel.h \
     ../inc/WBSignalDetectWidget_global.h \
     ../inc/wbsignaldetectwidget.h \
-    ../inc/popupparamset.h
+    ../inc/popupparamset.h \
+    ../inc/typicalfreqsetwidget.h
 
 DESTDIR = ../bin/
 
@@ -45,7 +47,8 @@ PRE_TARGETDEPS += 'C:/Program Files (x86)/Intel/oneAPI/ipp/2021.9.0/lib/intel64/
 FORMS += \
     ../ui/mainwindow.ui \
     ../ui/wbsignaldetectwidget.ui \
-    ../ui/popupparamset.ui
+    ../ui/popupparamset.ui \
+    ../ui/typicalfreqsetwidget.ui
 
 QXLSX_PARENTPATH=../3rdparty/QXlsx/         # current QXlsx path is . (. means curret directory)
 QXLSX_HEADERPATH=../3rdparty/QXlsx/header/  # current QXlsx header path is ./header/

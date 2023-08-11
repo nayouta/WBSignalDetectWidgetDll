@@ -37,11 +37,11 @@ QVariant WBSignalDetectModel::headerData(int section, Qt::Orientation orientatio
             case 0 :
                 return "序号";
             case 1 :
-                return "中心频率(Hz)";
+                return "中心频率(MHz)";
             case 2 :
-                return "电平";
+                return "电平(dBuV)";
             case 3 :
-                return "带宽";
+                return "带宽(MHz)";
             case 4 :
                 return "起始时间";
             case 5 :
@@ -93,7 +93,7 @@ int WBSignalDetectModel::rowCount(const QModelIndex &parent) const
 {
     if (parent.isValid())
         return 0;
-    return m_DisplayData.length();//m_mapValidSignalCharacter.keys().length();
+    return m_DisplayData.length();
 }
 
 int WBSignalDetectModel::columnCount(const QModelIndex &parent) const
@@ -256,10 +256,10 @@ void WBSignalDetectModel::SlotTriggerLegalFreqSet(bool checked)
         //完成修改后根据已修改的m_DisplayData中的状态修改map中对应数据的值
         foreach (const auto& signalIndex, m_DisplayData) {
             if(signalIndex.length() >= 9){
-                //LZMK:反向从用于显示的m_DisplayData中获取用于查询map的key，存在一些问题
-                //TODO:当显示频点和带宽的数据的单位发生变化时需要同时变更
-                int centerFreq = signalIndex.at(1).toInt();
-                int bandWidth = signalIndex.at(3).toInt();
+                //LZMK:反向从用于显示的m_DisplayData中获取用于查询map的key，存在一些问题 //TODO:当显示频点和带宽的数据的单位发生变化时需要同时变更
+                //显示时使用单位为MHz
+                int centerFreq = signalIndex.at(1).toDouble() * 1e6;
+                int bandWidth = signalIndex.at(3).toDouble() * 1e6;
                 SignalBaseChar curKey;
                 curKey.Bound = bandWidth;
                 curKey.CentFreq = centerFreq;
@@ -473,45 +473,18 @@ bool WBSignalDetectModel::findPeakCyclically(Ipp32f * FFtAvg, int length, int Fr
     return true;
 }
 
-class noiseAmp{
-public:
-    int freqPointPos;
-    int amp;
-    //仅用于判断当前幅度值的关系
-    bool operator<(const noiseAmp& other) const{
-        if(this->amp < other.amp){
-            return true;
-        }else if(this->amp == other.amp){
-            return this->freqPointPos < other.freqPointPos;
-        }
-        return false;
-    }
-};
-
-bool WBSignalDetectModel::findNoiseCharaAroundTypicalFreq(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth)
+bool WBSignalDetectModel::findManMadeNoiseFreqAutolly(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth)
 {
-    //100s执行一次
-    qint64 nowtime = QDateTime::currentMSecsSinceEpoch();
-    if(nowtime - m_iFindNoiseCharaTimeGap <= 100){
-        return true;
-    }
-    m_iFindNoiseCharaTimeGap = nowtime;
-
-    //TODO: 处理可能出现的噪声检查区间比总带宽还大的情况，需要噪声检查带宽适应总带宽
+    //处理可能出现的噪声检查区间比总带宽还大的情况，TODO: 需要噪声检查带宽适应总带宽
     if(m_iCheckBandAroundTypicalFreq > BandWidth){
-        return false;
+        m_iCheckBandAroundTypicalFreq = BandWidth;
     }
 
     QList<noiseAmp> noiseAmpLst;
     noiseAmp curNoiseAmp;
-    foreach(const int& typicalFreq, m_lstTypicalFreq){
-        if(typicalFreq - Freqency >= BandWidth / 2 || Freqency - typicalFreq >= BandWidth / 2){
-            //该典型频率不合当前频段规范
-            continue;
-        }
+    int startFreq = Freqency - BandWidth / 2;
+    foreach(const int& typicalFreq, m_mapTypicalFreqAndItsTestFreq.keys()){
         noiseAmpLst.clear();
-        int startFreq = Freqency - BandWidth / 2;
-        int endFreq = Freqency + BandWidth * 2;
         int noiseInterval = ceil(double(m_iCheckBandAroundTypicalFreq) / double(BandWidth) * length);
         int typicalFreqIndex = ceil(double(typicalFreq - startFreq) / double(BandWidth) * length);
         for(int index = typicalFreqIndex - noiseInterval / 2; index < typicalFreqIndex + noiseInterval / 2; ++index){
@@ -521,33 +494,96 @@ bool WBSignalDetectModel::findNoiseCharaAroundTypicalFreq(Ipp32f *FFtAvg, int le
         }
         std::sort(noiseAmpLst.begin(), noiseAmpLst.end());
         //采用20%处理法，选取幅值由小到大前20%的信号的中位数(10%)位置的值，作为要找的目标频点的幅值，将其更新给记录人为噪声的map中的对应元素
-        int targetFreq = noiseAmpLst.at(floor(double(noiseAmpLst.length()) / 10)).freqPointPos;
-        int targetAmp = noiseAmpLst.at(floor(double(noiseAmpLst.length()) / 10)).amp;
-        DisplaySignalCharacter curItem;
-        curItem.Info.BaseInfo.CentFreq = targetFreq;
-        curItem.Info.Amp = targetAmp;
-        curItem.startTime = QDateTime::currentMSecsSinceEpoch();      //用于记录当前频点截获时的时间
-        if(!m_mapManMadeNoiseCharacter.keys().contains(typicalFreq)){
-            QList<DisplaySignalCharacter> lstStarter;
-            lstStarter.append(curItem);
-            m_mapManMadeNoiseCharacter.insert(typicalFreq, lstStarter);
+        m_mapTypicalFreqAndItsTestFreq.insert(typicalFreq, noiseAmpLst.at(floor(double(noiseAmpLst.length()) / 10)).freqPointPos);
+    }
+    return true;
+}
+
+bool WBSignalDetectModel::findNoiseCharaAroundTypicalFreq(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth)
+{
+    //10ms执行一次
+    qint64 nowtime = QDateTime::currentMSecsSinceEpoch();
+    if(nowtime - m_iFindNoiseCharaTimeGap <= 10){
+        return true;
+    }
+    m_iFindNoiseCharaTimeGap = nowtime;
+    bool lackOfTestFreqFlag = false;
+    foreach (const int& testFreqValue, m_mapTypicalFreqAndItsTestFreq.values()) {
+        if(testFreqValue == 0){
+            lackOfTestFreqFlag = true;
+            break;
+        }
+    }
+    if(lackOfTestFreqFlag || m_bManuallySetManMadeNoiseFreq){
+        findManMadeNoiseFreqAutolly(FFtAvg, length, Freqency, BandWidth);
+    }
+
+    int startFreq = Freqency - BandWidth / 2;
+    int endFreq = Freqency + BandWidth / 2;
+
+    foreach(const int& typicalFreq, m_mapTypicalFreqAndItsTestFreq.keys()){
+        int curIndex;
+        if(m_mapTypicalFreqAndItsTestFreq[typicalFreq] < startFreq){
+            curIndex = 0;
+        }else if(m_mapTypicalFreqAndItsTestFreq[typicalFreq] > endFreq){
+            curIndex = length - 1;
         }else{
-            //TODO:此处需要根据需求完善逻辑，或许根据每个典型频点对应各自的定时器更新对应值会更好
-            //当前增加一条记录的条件为本次截获的时间与前一次截获的时间相差超过4个小时
-            if(curItem.startTime - m_mapManMadeNoiseCharacter[typicalFreq].constLast().startTime >= 4 * 3600 * 1000){
-                m_mapManMadeNoiseCharacter[typicalFreq].append(curItem);
-            }
+            curIndex = (m_mapTypicalFreqAndItsTestFreq[typicalFreq] - startFreq) / BandWidth * length;
+        }
+        int curAmp = FFtAvg[curIndex];
+        if(!m_mapStoreAmpValueToGetManMadeNoiseValue.keys().contains(typicalFreq)){
+            QList<int> lstStarter;
+            lstStarter.append(curAmp);
+            m_mapStoreAmpValueToGetManMadeNoiseValue.insert(typicalFreq, lstStarter);
+        }else{
+            m_mapStoreAmpValueToGetManMadeNoiseValue[typicalFreq].append(curAmp);
         }
     }
 
-    //每积累10次该频点数据后计算一次
-
+    //积累了100条记录后更新一次
+    foreach (const int& typicalFreq, m_mapStoreAmpValueToGetManMadeNoiseValue.keys()) {
+        if(m_mapStoreAmpValueToGetManMadeNoiseValue[typicalFreq].length() >= 100){
+            DisplaySignalCharacter curItem;
+            curItem.Info.BaseInfo.CentFreq = m_mapTypicalFreqAndItsTestFreq[typicalFreq];
+            std::sort(m_mapStoreAmpValueToGetManMadeNoiseValue[typicalFreq].begin(), m_mapStoreAmpValueToGetManMadeNoiseValue[typicalFreq].end());
+            int targetAmp = 0;
+            for(int index = 0; index < 20; ++index){
+                targetAmp += m_mapStoreAmpValueToGetManMadeNoiseValue[typicalFreq][index];
+            }
+            targetAmp /= 20;
+            curItem.Info.Amp = targetAmp;
+            curItem.startTime = QDateTime::currentMSecsSinceEpoch();      //用于记录当前频点截获时的时间
+            if(!m_mapManMadeNoiseCharacter.keys().contains(typicalFreq)){
+                QList<DisplaySignalCharacter> lstStarter;
+                lstStarter.append(curItem);
+                m_mapManMadeNoiseCharacter.insert(typicalFreq, lstStarter);
+            }else{
+                //TODO:此处需要根据需求完善逻辑，或许根据每个典型频点对应各自的定时器更新对应值会更好
+                //当前增加一条记录的条件为本次截获的时间与前一次截获的时间相差超过4个小时
+                if(curItem.startTime - m_mapManMadeNoiseCharacter[typicalFreq].constLast().startTime >= 4 * 3600 * 1000){
+                    m_mapManMadeNoiseCharacter[typicalFreq].append(curItem);
+                }
+            }
+            //更新一次之后灵力当前map中的数据
+            m_mapStoreAmpValueToGetManMadeNoiseValue[typicalFreq].clear();
+        }
+    }
     return true;
 }
 
 void WBSignalDetectModel::reAlignValidSignalCharacterMap()
 {
 
+}
+
+QMap<int, int> WBSignalDetectModel::mapTypicalFreqAndItsTestFreq() const
+{
+    return m_mapTypicalFreqAndItsTestFreq;
+}
+
+void WBSignalDetectModel::setMapTypicalFreqAndItsTestFreq(const QMap<int, int> &newMapTypicalFreqAndItsTestFreq)
+{
+    m_mapTypicalFreqAndItsTestFreq = newMapTypicalFreqAndItsTestFreq;
 }
 
 QMap<int, int> WBSignalDetectModel::mapExistTypicalFreqNoiseRecordAmount() const
@@ -561,12 +597,15 @@ QMap<int, int> WBSignalDetectModel::mapExistTypicalFreqNoiseRecordAmount() const
 
 QList<int> WBSignalDetectModel::lstTypicalFreq() const
 {
-    return m_lstTypicalFreq;
+    return m_mapTypicalFreqAndItsTestFreq.keys();
 }
 
 void WBSignalDetectModel::setLstTypicalFreq(const QList<int> &newLstTypicalFreq)
 {
-    m_lstTypicalFreq = newLstTypicalFreq;
+    m_mapTypicalFreqAndItsTestFreq.clear();
+    foreach (const int& typicalFreq, newLstTypicalFreq) {
+        m_mapTypicalFreqAndItsTestFreq.insert(typicalFreq, 0);
+    }
 }
 
 void WBSignalDetectModel::slotCheckSignalActive()
@@ -632,10 +671,10 @@ void WBSignalDetectModel::UpdateData()
             QVector<QString> line;
             line.append(QString("%1").arg(i));
             if(m_eUserViewType == SIGNAL_DETECT_TABLE){
-                line.append(QString::number(curSigBaseInfo.CentFreq));
-                //line.append(QString::number(m_mapValidSignalCharacter.value(curSigBaseInfo).last().Info));
+                //LZMK: 此处将HZ转为MHZ显示有可能造成后面设置合法信号时无法反向找回到map中对应的那条数据，可能存在风险
+                line.append(QString::number(double(curSigBaseInfo.CentFreq) / 1e6, 'f', 6));
                 line.append(QString::number(m_mapValidSignalCharacter.value(curSigBaseInfo).constLast().Info.Amp + 107));        //电平，采用107算法
-                line.append(QString::number(m_mapValidSignalCharacter.value(curSigBaseInfo).constLast().Info.BaseInfo.Bound));        //带宽
+                line.append(QString::number(double(m_mapValidSignalCharacter.value(curSigBaseInfo).constLast().Info.BaseInfo.Bound) / 1e6, 'f', 6));        //带宽
 
                 QDateTime time;
                 if(m_mapValidSignalCharacter.value(curSigBaseInfo).constFirst().startTime == 0){

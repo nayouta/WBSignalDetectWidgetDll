@@ -7,8 +7,10 @@ class WBSignalDetectModel;
 class SignalDetectTableView;
 class ManMadeNoiseTableView;
 class DisturbNoiseTableView;
+class TypicalFreqSetWidget;
 
 #include <popupparamset.h>
+
 
 namespace Ui {
 class WBSignalDetectWidget;
@@ -21,11 +23,6 @@ class WBSignalDetectWidget : public QWidget
 public:
     explicit WBSignalDetectWidget(QWidget *parent = nullptr);
     ~WBSignalDetectWidget();
-
-private slots:
-    void on_tabWidget_SignalDetectTable_currentChanged(int index);
-
-    void on_pushButton_ParamSet_clicked();
 
 signals:
     //记录开始检测时间
@@ -54,11 +51,17 @@ private:
 
     PopupParamSet* m_pPopupParamSet = nullptr;
 
+    TypicalFreqSetWidget* m_pTypicalFreqSetWidget = nullptr;
+
     bool turnToCorrectTableModel();
 
     ParamSet m_DetectParam;
 
 private slots:
+    void on_tabWidget_SignalDetectTable_currentChanged(int index);
+
+    void on_pushButton_ParamSet_clicked();
+
     void slotSetDetectParam(ParamSet param);
 
     void on_pushButton_setLegalFreq_clicked(bool checked);
@@ -69,6 +72,7 @@ private slots:
     //默认配置文件保存在可执行文件同级目录下名称为 legalFreq.ini 文件中
     void on_pushButton_importLegal_clicked();
     void on_pushButton_ExportLegal_clicked();
+    void on_pushButton_TypicalFreqSet_clicked();
 };
 
 #endif // WBSIGNALDETECTWIDGET_H

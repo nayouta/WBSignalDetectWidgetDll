@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TypicalFreqSetWidget</class>
+ <widget class="QWidget" name="TypicalFreqSetWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>421</width>
+    <height>376</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="0">
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QCheckBox" name="checkBox_Enable">
+       <property name="text">
+        <string>使能</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_TypicalFreq">
+       <property name="text">
+        <string>典型频率(MHz)：</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_TypicalFreq"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_TestFreq">
+       <property name="text">
+        <string>测试频率(MHz)：</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_TestFreq"/>
+     </item>
+    </layout>
+   </item>
+   <item row="1" column="0">
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <item>
+      <widget class="QCheckBox" name="checkBox_Enable_2">
+       <property name="text">
+        <string>使能</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_TypicalFreq_2">
+       <property name="text">
+        <string>典型频率(MHz)：</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_TypicalFreq_2"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_TestFreq_2">
+       <property name="text">
+        <string>测试频率(MHz)：</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_TestFreq_2"/>
+     </item>
+    </layout>
+   </item>
+   <item row="2" column="0">
+    <layout class="QHBoxLayout" name="horizontalLayout_3">
+     <item>
+      <widget class="QCheckBox" name="checkBox_Enable_3">
+       <property name="text">
+        <string>使能</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_TypicalFreq_3">
+       <property name="text">
+        <string>典型频率(MHz)：</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_TypicalFreq_3"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_TestFreq_3">
+       <property name="text">
+        <string>测试频率(MHz)：</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_TestFreq_3"/>
+     </item>
+    </layout>
+   </item>
+   <item row="3" column="0">
+    <layout class="QHBoxLayout" name="horizontalLayout_4">
+     <item>
+      <widget class="QCheckBox" name="checkBox_Enable_4">
+       <property name="text">
+        <string>使能</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_TypicalFreq_4">
+       <property name="text">
+        <string>典型频率(MHz)：</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_TypicalFreq_4"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_TestFreq_4">
+       <property name="text">
+        <string>测试频率(MHz)：</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_TestFreq_4"/>
+     </item>
+    </layout>
+   </item>
+   <item row="4" column="0">
+    <layout class="QHBoxLayout" name="horizontalLayout_5">
+     <item>
+      <widget class="QCheckBox" name="checkBox_Enable_5">
+       <property name="text">
+        <string>使能</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_TypicalFreq_5">
+       <property name="text">
+        <string>典型频率(MHz)：</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_TypicalFreq_5"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_TestFreq_5">
+       <property name="text">
+        <string>测试频率(MHz)：</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_TestFreq_5"/>
+     </item>
+    </layout>
+   </item>
+   <item row="5" column="0">
+    <layout class="QHBoxLayout" name="horizontalLayout_6">
+     <item>
+      <widget class="QCheckBox" name="checkBox_Enable_6">
+       <property name="text">
+        <string>使能</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_TypicalFreq_6">
+       <property name="text">
+        <string>典型频率(MHz)：</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_TypicalFreq_6"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_TestFreq_6">
+       <property name="text">
+        <string>测试频率(MHz)：</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_TestFreq_6"/>
+     </item>
+    </layout>
+   </item>
+   <item row="6" column="0">
+    <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,0,0">
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_Confirm">
+       <property name="text">
+        <string>确认</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_Cancel">
+       <property name="text">
+        <string>取消</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

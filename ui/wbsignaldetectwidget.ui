@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>478</width>
-    <height>362</height>
+    <width>595</width>
+    <height>373</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,11 +15,18 @@
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0" colspan="2">
-    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,1,0,0,0,0">
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,1,0,0,0,0">
      <item>
       <widget class="QPushButton" name="pushButton_ParamSet">
        <property name="text">
         <string>参数设置</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_TypicalFreqSet">
+       <property name="text">
+        <string>典型频点设置</string>
        </property>
       </widget>
      </item>

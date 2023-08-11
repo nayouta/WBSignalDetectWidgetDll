@@ -43,6 +43,21 @@ enum MODEL_USER_VIEW{
     MAN_MADE_NOISE_TABLE = 3
 };
 
+class noiseAmp{
+public:
+    int freqPointPos;
+    int amp;
+    //仅用于判断当前幅度值的关系
+    bool operator<(const noiseAmp& other) const{
+        if(this->amp < other.amp){
+            return true;
+        }else if(this->amp == other.amp){
+            return this->freqPointPos < other.freqPointPos;
+        }
+        return false;
+    }
+};
+
 class WBSignalDetectModel : public QAbstractTableModel
 {
     Q_OBJECT
@@ -73,6 +88,8 @@ public:
 
     QMap<int, int> mapExistTypicalFreqNoiseRecordAmount() const;
 
+    QMap<int, int> mapTypicalFreqAndItsTestFreq() const;
+
 signals:
     void sigTriggerRefreshData();
 
@@ -92,10 +109,13 @@ public slots:
     //管理合法频点设置
     bool SlotImportLegalFreqConf();
     bool SlotExportLegalFreqConf();
+    void setMapTypicalFreqAndItsTestFreq(const QMap<int, int> &newMapTypicalFreqAndItsTestFreq);
 
 private:
     bool findPeakIteratively(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
     bool findPeakCyclically(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
+    bool findManMadeNoiseFreqAutolly(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
+    //根据当前典型频点自动找出用于长时间累计记录的测量频点
     bool findNoiseCharaAroundTypicalFreq(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
 
     QTimer* m_pSignalActiveChecker = nullptr;
@@ -129,11 +149,16 @@ private:
 
     bool m_bIsSettingLegalFreqFlag = false;
 
-    QList<int> m_lstTypicalFreq;        //记录当前典型频率点
+    QMap<int, int> m_mapTypicalFreqAndItsTestFreq;        //记录当前典型频率点及其附近找到的测试频点的对应关系       //默认测试频点未成功设置的情况下其值为0
+
+    QMap<int, QList<int>> m_mapStoreAmpValueToGetManMadeNoiseValue;  //暂存当前典型频率点附近找到的测试频点的幅值
 
     int m_iCheckBandAroundTypicalFreq = 2e6;    //默认检测典型频率点周围2m范围内信号的噪声特性
 
     qint64 m_iFindNoiseCharaTimeGap = 0;
+
+    bool m_bManuallySetManMadeNoiseFreq = false;    //手动设置人为噪声测量频点标志位
+
 
 private slots:
     void slotCheckSignalActive();
