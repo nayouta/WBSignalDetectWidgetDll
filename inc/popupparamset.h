@@ -4,12 +4,11 @@
 #include <QWidget>
 #include <QMetaType>
 #include <QDialog>
+#include <QDoubleSpinBox>
+#include <QPushButton>
 
-namespace Ui {
-class PopupParamSet;
-}
-
-struct ParamSet{
+struct ParamSet
+{
     uint FreqPointThreshold = 0;
     uint BandwidthThreshold = 0;
     uint ActiveThreshold = 0;
@@ -17,24 +16,23 @@ struct ParamSet{
 
 Q_DECLARE_METATYPE(ParamSet);
 
-class PopupParamSet : public QDialog
+class PopupParamSet: public QDialog
 {
     Q_OBJECT
 
 public:
     explicit PopupParamSet(QWidget *parent = nullptr);
-    ~PopupParamSet();
 
 signals:
     void sigUpdateParam(ParamSet param);
 
-private slots:
-    void on_pushButton_Confirm_clicked();
-
-    void on_pushButton_Cancel_clicked();
-
 private:
-    Ui::PopupParamSet *ui;
+    void setupUi();
+    QDoubleSpinBox *doubleSpinBox_FreqPointThreshold;
+    QDoubleSpinBox *doubleSpinBox_BandwidthThreshold;
+    QSpinBox *spinBox_ActiveThreshold;
+    QPushButton *pushButton_Cancel;
+    QPushButton *pushButton_Confirm;
 };
 
 #endif // POPUPPARAMSET_H

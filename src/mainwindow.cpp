@@ -40,9 +40,14 @@ MainWindow::MainWindow(QWidget *parent)
     m_pSigDetectWidget = new WBSignalDetectWidget(this);
 
     this->setCentralWidget(m_pSigDetectWidget);
-    emit m_pSigDetectWidget->sigSetValidAmpThreshold(500);
-    emit m_pSigDetectWidget->sigTriggerSignalDetect(m_pFFTIn, 32, 640, 15e6, 30e6);
+    emit m_pSigDetectWidget->sigSetValidAmpThreshold(-100);
+
+    connect(&timer, &QTimer::timeout, this, &MainWindow::slotTriggerTimer);
+
+    timer.start(10);
 }
+
+
 
 MainWindow::~MainWindow()
 {
@@ -51,5 +56,20 @@ MainWindow::~MainWindow()
     }
 
     delete ui;
+}
+
+void MainWindow::slotTriggerTimer()
+{
+    emit m_pSigDetectWidget->sigTriggerSignalDetect((unsigned char*)m_pFFTIn, 32, 640, 15e6, 30e6);
+}
+
+void MainWindow::on_pushButton_StartDetect_clicked()
+{
+    emit m_pSigDetectWidget->startDetect();
+}
+
+void MainWindow::on_pushButton_StopDetect_clicked()
+{
+    emit m_pSigDetectWidget->stopDetect();
 }
 

@@ -1,25 +1,21 @@
-#include "../inc/manmadenoisetableview.h"
+#include "ManMadeNoiseTableView.h"
 #include <QHeaderView>
 
 #include "xlsxdocument.h"
 #include "xlsxcellrange.h"
 
-ManMadeNoiseTableView::ManMadeNoiseTableView(QWidget *parent)
-    : QTableView{parent}
+ManMadeNoiseTableView::ManMadeNoiseTableView(QWidget *parent): QTableView{parent}
 {
     horizontalHeader()->setStretchLastSection(true);
     horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     setSortingEnabled(true);
-    this->verticalHeader()->hide();
-
+    verticalHeader()->hide();
 }
 
 bool ManMadeNoiseTableView::GenerateExcelTable(QString folderName, QMap<int, int> mapExistTypicalFreqNoiseRecordAmount)
 {
     QString fileName = folderName + "/电磁环境人为噪声电平测量记录" + QDateTime::currentDateTime().toString(" yyyy-MM-dd hh：mm：ss") + ".xlsx";
-
     QXlsx::Document xlsx;
-
     //不跟随当前实际信号状态递增的部分
     QXlsx::Format format;
     format.setHorizontalAlignment(QXlsx::Format::AlignHCenter);
@@ -95,7 +91,7 @@ bool ManMadeNoiseTableView::GenerateExcelTable(QString folderName, QMap<int, int
         dataPosRow += 1;
     }
 
-    //计算平均电平、最大电平、最小电平，合并对应单元格并填入   //TODO: 并填充检波方式以及中频带宽信息
+    //计算平均电平、最大电平、最小电平，合并对应单元格并填入
     int staticStartRow = 5;
     foreach(const auto& curTypicalFreq, mapExistTypicalFreqNoiseRecordAmount.keys()){
         QList<int> existAmpForCurrentTypicalFreqLst;
@@ -124,11 +120,11 @@ bool ManMadeNoiseTableView::GenerateExcelTable(QString folderName, QMap<int, int
         //检波方式
         range = QXlsx::CellRange("I" + QString::number(staticStartRow) + ":I" + QString::number(staticStartRow + curNoiseRecordAmount - 1));
         xlsx.mergeCells(range, format);
-        xlsx.write("I" + QString::number(staticStartRow), "", format);
+        xlsx.write("I" + QString::number(staticStartRow), "RMS", format);
         //中频带宽
         range = QXlsx::CellRange("J" + QString::number(staticStartRow) + ":J" + QString::number(staticStartRow + curNoiseRecordAmount - 1));
         xlsx.mergeCells(range, format);
-        xlsx.write("J" + QString::number(staticStartRow), "", format);
+        xlsx.write("J" + QString::number(staticStartRow), "2.4KHz", format);
         staticStartRow += curNoiseRecordAmount;
     }
 

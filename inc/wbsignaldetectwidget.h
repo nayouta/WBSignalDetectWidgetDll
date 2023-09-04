@@ -3,34 +3,20 @@
 
 #include <QWidget>
 
-class WBSignalDetectModel;
-class SignalDetectTableView;
-class ManMadeNoiseTableView;
-class DisturbNoiseTableView;
-class TypicalFreqSetWidget;
+#include "../inc/PopupParamSet.h"
+#include "../inc/TypicalFreqSetWidget.h"
+#include "../inc/signaldetecttableview.h"
+#include "../inc/manmadenoisetableview.h"
+#include "../inc/disturbnoisetableview.h"
+#include "../inc/wbsignaldetectmodel.h"
 
-#include <popupparamset.h>
-
-
-namespace Ui {
-class WBSignalDetectWidget;
-}
-
-class WBSignalDetectWidget : public QWidget
+class WBSignalDetectWidget: public QWidget
 {
     Q_OBJECT
-
 public:
     explicit WBSignalDetectWidget(QWidget *parent = nullptr);
-    ~WBSignalDetectWidget();
-
-signals:
-    //记录开始检测时间
-    void startDetect();
-    //记录最终完成检测时间
-    void stopDetect();
     //单次数据传入触发处理
-    void sigTriggerSignalDetect(float *FFtin,       //FFT输入数据
+    void sigTriggerSignalDetect(unsigned char *FFtin, //FFT输入数据
                                 int InStep,         //平滑滑窗的宽度
                                 int length,         //FFT的点数
                                 int Freqency,       //中心频点
@@ -38,41 +24,40 @@ signals:
     //设置有效电平门限   dBm
     void sigSetValidAmpThreshold(float amp);
 
+signals:
+    //记录开始检测时间
+    void startDetect();
+    //记录最终完成检测时间
+    void stopDetect();
+
 private:
-    Ui::WBSignalDetectWidget *ui;
-
-    WBSignalDetectModel* m_pGenericModel = nullptr;
-
-    SignalDetectTableView* m_pSignalDetectTable = nullptr;
-
-    DisturbNoiseTableView* m_pDisturbNoiseTable = nullptr;
-
-    ManMadeNoiseTableView* m_pManMadeNoiseTable = nullptr;
-
-    PopupParamSet* m_pPopupParamSet = nullptr;
-
-    TypicalFreqSetWidget* m_pTypicalFreqSetWidget = nullptr;
-
+    void setupUi();
     bool turnToCorrectTableModel();
-
+    WBSignalDetectModel* m_pGenericModel = nullptr;
+    SignalDetectTableView* m_pSignalDetectTable = nullptr;
+    DisturbNoiseTableView* m_pDisturbNoiseTable = nullptr;
+    ManMadeNoiseTableView* m_pManMadeNoiseTable = nullptr;
+    PopupParamSet* m_pPopupParamSet = nullptr;
+    TypicalFreqSetWidget* m_pTypicalFreqSetWidget = nullptr;
     ParamSet m_DetectParam;
 
+private:
+    QPushButton *pushButton_ParamSet;
+    QPushButton *pushButton_TypicalFreqSet;
+    QPushButton *pushButton_importLegal;
+    QPushButton *pushButton_ExportLegal;
+    QPushButton *pushButton_cleanAllData;
+    QPushButton *pushButton_setLegalFreq;
+    QTabWidget *tabWidget_SignalDetectTable;
+    QPushButton *pushButton_GenerateSignalDetect;
+    QPushButton *pushButton_GenerateDisturbSIgnal;
+    QPushButton *pushButton_GenerateManMadeNoise;
+    QPushButton *pushButton_GenerateElecEnvReport;
+
 private slots:
-    void on_tabWidget_SignalDetectTable_currentChanged(int index);
-
-    void on_pushButton_ParamSet_clicked();
-
-    void slotSetDetectParam(ParamSet param);
-
-    void on_pushButton_setLegalFreq_clicked(bool checked);
-    void on_pushButton_cleanAllData_clicked();
-    void on_pushButton_GenerateDisturbSIgnal_clicked();
-    void on_pushButton_GenerateManMadeNoise_clicked();
-    void on_pushButton_GenerateElecEnvReport_clicked();
-    //默认配置文件保存在可执行文件同级目录下名称为 legalFreq.ini 文件中
-    void on_pushButton_importLegal_clicked();
-    void on_pushButton_ExportLegal_clicked();
-    void on_pushButton_TypicalFreqSet_clicked();
+    //根据当前检测状态控制典型频点设置按钮的显隐
+    void slotHideTypicalFreqSetButton();
+    void slotShowTypicalFreqSetButton();
 };
 
 #endif // WBSIGNALDETECTWIDGET_H

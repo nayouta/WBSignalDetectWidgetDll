@@ -6,23 +6,16 @@
 #include <QItemDelegate>
 #include <QComboBox>
 
-class ComboBoxDelegate : public QItemDelegate {
+class CheckBoxDelegate : public QItemDelegate
+{
     Q_OBJECT
-
 public:
-    ComboBoxDelegate(QObject *parent = nullptr) : QItemDelegate(parent) {}
-
+    explicit CheckBoxDelegate(QObject *parent = nullptr);
     QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
-
     void setEditorData(QWidget *editor, const QModelIndex &index) const override;
-
     void setModelData(QWidget *editor, QAbstractItemModel *model, const QModelIndex &index) const override;
-
     void updateEditorGeometry(QWidget *editor, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
-
 //    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
-private:
-    QFont m_Font;
 };
 
 class SignalDetectTableView : public QTableView
@@ -31,13 +24,6 @@ class SignalDetectTableView : public QTableView
 public:
     explicit SignalDetectTableView(QWidget *parent = nullptr);
     bool GenerateExcelTable(QString folderName);
-
-protected:
-    virtual ~SignalDetectTableView();
-
-
-signals:
-
 };
 
 #endif // SIGNALDETECTTABLEVIEW_H

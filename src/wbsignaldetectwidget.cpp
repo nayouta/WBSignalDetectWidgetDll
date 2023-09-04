@@ -1,218 +1,193 @@
-#include "wbsignaldetectwidget.h"
-#include "ui_wbsignaldetectwidget.h"
+#include "../inc/WBSignalDetectWidget.h"
 
 #include <QFileDialog>
-
-#include <signaldetecttableview.h>
-#include <wbsignaldetectmodel.h>
-#include <manmadenoisetableview.h>
-#include <disturbnoisetableview.h>
-#include "typicalfreqsetwidget.h"
-
 #include <QMessageBox>
+#include <QPushButton>
+#include <QBoxLayout>
+#include "global.h"
 
-WBSignalDetectWidget::WBSignalDetectWidget(QWidget *parent) :
-    QWidget(parent),
-    ui(new Ui::WBSignalDetectWidget)
+WBSignalDetectWidget::WBSignalDetectWidget(QWidget *parent): QWidget(parent)
 {
-    ui->setupUi(this);
-
-    m_pGenericModel = new WBSignalDetectModel(this);
-
-    m_pSignalDetectTable = new SignalDetectTableView(this);
+    setupUi();
+    m_pGenericModel = new WBSignalDetectModel;
+    tabWidget_SignalDetectTable->addTab(m_pSignalDetectTable = new SignalDetectTableView, "信号检测表");
     m_pSignalDetectTable->setModel(m_pGenericModel);
-
-    m_pDisturbNoiseTable = new DisturbNoiseTableView(this);
+    tabWidget_SignalDetectTable->addTab(m_pDisturbNoiseTable = new DisturbNoiseTableView, "干扰信号测量表");
     m_pDisturbNoiseTable->setModel(m_pGenericModel);
-
-    m_pManMadeNoiseTable = new ManMadeNoiseTableView(this);
+    tabWidget_SignalDetectTable->addTab(m_pManMadeNoiseTable = new ManMadeNoiseTableView, "电磁环境人为噪声电平测量表");
     m_pManMadeNoiseTable->setModel(m_pGenericModel);
 
-    ui->tabWidget_SignalDetectTable->addTab(m_pSignalDetectTable, "信号检测表");
-    ui->tabWidget_SignalDetectTable->addTab(m_pDisturbNoiseTable, "干扰信号测量表");
-    ui->tabWidget_SignalDetectTable->addTab(m_pManMadeNoiseTable, "电磁环境人为噪声电平测量表");
-
-    m_pPopupParamSet = new PopupParamSet(this);
-    m_pPopupParamSet->setModal(false);
-    m_pPopupParamSet->hide();
-
-    m_pTypicalFreqSetWidget = new TypicalFreqSetWidget(this);
-    m_pTypicalFreqSetWidget->setModal(false);
-    m_pTypicalFreqSetWidget->hide();
-
     turnToCorrectTableModel();
-
     connect(this, &WBSignalDetectWidget::startDetect, m_pGenericModel, &WBSignalDetectModel::SetStartTime);
     connect(this, &WBSignalDetectWidget::stopDetect, m_pGenericModel, &WBSignalDetectModel::SetStopTime);
-    connect(this, &WBSignalDetectWidget::sigTriggerSignalDetect, m_pGenericModel, &WBSignalDetectModel::FindSignal);
-    connect(this, &WBSignalDetectWidget::sigSetValidAmpThreshold, m_pGenericModel,&WBSignalDetectModel::setFThreshold);
-
-    connect(m_pPopupParamSet, &PopupParamSet::sigUpdateParam, this, &WBSignalDetectWidget::slotSetDetectParam);
-    connect(m_pTypicalFreqSetWidget, &TypicalFreqSetWidget::sigHaveTypicalFreq,
-            m_pGenericModel, &WBSignalDetectModel::setMapTypicalFreqAndItsTestFreq);
+    connect(m_pPopupParamSet = new PopupParamSet, &PopupParamSet::sigUpdateParam, this, [this](ParamSet param) {
+        m_DetectParam = param;
+        m_pGenericModel->setBandwidthThreshold(m_DetectParam.BandwidthThreshold);
+        m_pGenericModel->setActiveThreshold(m_DetectParam.ActiveThreshold);
+        m_pGenericModel->setFreqPointThreshold(m_DetectParam.FreqPointThreshold);
+    });
+    m_pPopupParamSet->setModal(false);
+    m_pPopupParamSet->hide();
+    connect(m_pTypicalFreqSetWidget = new TypicalFreqSetWidget, &TypicalFreqSetWidget::sigHaveTypicalFreq, m_pGenericModel, &WBSignalDetectModel::setMapTypicalFreqAndItsTestFreq);
+    m_pTypicalFreqSetWidget->setModal(false);
+    m_pTypicalFreqSetWidget->hide();
 }
 
-WBSignalDetectWidget::~WBSignalDetectWidget()
+void WBSignalDetectWidget::sigTriggerSignalDetect(unsigned char* amplData, int InStep, int length, int Freqency, int BandWidth)
 {
-    delete ui;
+    auto FFtin = ippsMalloc_32f(length);
+    for (int i = 0; i < length; ++i)
+    {
+        FFtin[i] = (short)amplData[i] + AMPL_OFFSET;
+    }
+    m_pGenericModel->FindSignal(FFtin, InStep, length, Freqency, BandWidth);
+    ippsFree(FFtin);
 }
 
-void WBSignalDetectWidget::on_tabWidget_SignalDetectTable_currentChanged(int index)
+void WBSignalDetectWidget::sigSetValidAmpThreshold(float amp)
 {
-    Q_UNUSED(index);
-    turnToCorrectTableModel();
+    m_pGenericModel->setFThreshold(amp);
+}
+
+void WBSignalDetectWidget::setupUi()
+{
+    auto mainLayout = new QVBoxLayout(this);
+    auto horizontalLayout = new QHBoxLayout;
+    horizontalLayout->addWidget(pushButton_ParamSet = new QPushButton("参数设置"));
+    connect(pushButton_ParamSet, &QPushButton::clicked, this, [this] {
+        m_pPopupParamSet->setModal(true);
+        m_pPopupParamSet->show();
+    });
+    horizontalLayout->addWidget(pushButton_TypicalFreqSet = new QPushButton("典型频点设置"));
+    connect(this, &WBSignalDetectWidget::startDetect, this, &WBSignalDetectWidget::slotShowTypicalFreqSetButton);
+    connect(this, &WBSignalDetectWidget::stopDetect, this, &WBSignalDetectWidget::slotHideTypicalFreqSetButton);
+    connect(pushButton_TypicalFreqSet, &QPushButton::clicked, this, [this] {
+        m_pTypicalFreqSetWidget->setModal(true);
+        m_pTypicalFreqSetWidget->SetCurrentTypicalFreqFromTable(m_pGenericModel->lstTypicalFreq());
+        m_pTypicalFreqSetWidget->show();
+    });
+    horizontalLayout->addStretch();
+    horizontalLayout->addWidget(pushButton_importLegal = new QPushButton("导入非法频点设置"));
+    connect(pushButton_importLegal, &QPushButton::clicked, this, [this] {
+        QMessageBox::information(nullptr, "导入非法频点设置", (m_pGenericModel && m_pGenericModel->SlotImportLegalFreqConf())? "导入成功！": "导入失败！");
+    });
+    horizontalLayout->addWidget(pushButton_ExportLegal = new QPushButton("导出非法频点设置"));
+    connect(pushButton_ExportLegal, &QPushButton::clicked, this, [this] {
+        QMessageBox::information(nullptr, "导出非法频点设置", (m_pGenericModel && m_pGenericModel->SlotExportLegalFreqConf())? "导出成功！": "导出失败！");
+    });
+    horizontalLayout->addWidget(pushButton_cleanAllData = new QPushButton("清理"));
+    connect(pushButton_cleanAllData, &QPushButton::clicked, this, [this] {
+        if (m_pGenericModel)
+            m_pGenericModel->SlotCleanUp();
+    });
+    horizontalLayout->addWidget(pushButton_setLegalFreq = new QPushButton("开始设置非法频点"));
+    connect(pushButton_setLegalFreq, &QPushButton::clicked, this, [this](bool checked) {
+        if(checked)
+            pushButton_setLegalFreq->setText("完成设置");
+        else
+            pushButton_setLegalFreq->setText("开始设置非法频点");
+        if (m_pGenericModel)
+            m_pGenericModel->SlotTriggerLegalFreqSet(checked);
+    });
+    pushButton_setLegalFreq->setCheckable(true);
+
+    mainLayout->addLayout(horizontalLayout);
+    mainLayout->addWidget(tabWidget_SignalDetectTable = new QTabWidget);
+    connect(tabWidget_SignalDetectTable, &QTabWidget::currentChanged, this, [this](int) {
+        turnToCorrectTableModel();
+    });
+
+    horizontalLayout = new QHBoxLayout;
+    horizontalLayout->addStretch();
+    horizontalLayout->addWidget(pushButton_GenerateSignalDetect = new QPushButton("保存信号检测记录"));
+    connect(pushButton_GenerateSignalDetect, &QPushButton::clicked, this, [this] {
+        //先将tabwidget转到对应的tab上
+        tabWidget_SignalDetectTable->setCurrentIndex(0);
+        QFileDialog dialog;
+        QString selectedFolder = dialog.getExistingDirectory(this, tr("Select Directory"), QDir::currentPath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        if (selectedFolder.isEmpty())
+        {
+            qDebug() << "File saving cancelled.";
+            return;
+        }
+        if (!m_pSignalDetectTable->GenerateExcelTable(selectedFolder))
+        {
+            //TODO: 生成失败时的处理方法
+        }
+    });
+    horizontalLayout->addWidget(pushButton_GenerateDisturbSIgnal = new QPushButton("保存干扰信号测量记录"));
+    connect(pushButton_GenerateDisturbSIgnal, &QPushButton::clicked, this, [this] {
+        //先将tabwidget转到对应的tab上
+        tabWidget_SignalDetectTable->setCurrentIndex(1);
+        QFileDialog dialog;
+        QString selectedFolder = dialog.getExistingDirectory(this, tr("Select Directory"), QDir::currentPath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        if (selectedFolder.isEmpty())
+        {
+            qDebug() << "File saving cancelled.";
+            return;
+        }
+        if (!m_pDisturbNoiseTable->GenerateExcelTable(selectedFolder))
+        {
+            //TODO: 生成失败时的处理方法
+        }
+    });
+    horizontalLayout->addWidget(pushButton_GenerateManMadeNoise = new QPushButton("保存电磁环境人为噪声电平测量记录"));
+    connect(pushButton_GenerateManMadeNoise, &QPushButton::clicked, this, [this] {
+        //先将tabwidget转到对应的tab上
+        tabWidget_SignalDetectTable->setCurrentIndex(2);
+        QFileDialog dialog;
+        QString selectedFolder = dialog.getExistingDirectory(this, tr("Select Directory"), QDir::currentPath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        if (selectedFolder.isEmpty())
+        {
+            qDebug() << "File saving cancelled.";
+            return;
+        }
+        if (!m_pManMadeNoiseTable->GenerateExcelTable(selectedFolder, m_pGenericModel->mapExistTypicalFreqNoiseRecordAmount()))
+        {
+            //TODO: 生成失败时的处理方法
+        }
+    });
+    horizontalLayout->addWidget(pushButton_GenerateElecEnvReport = new QPushButton("生成电磁环境测试报告"));
+    connect(pushButton_GenerateElecEnvReport, &QPushButton::clicked, this, [this] {
+
+    });
+    mainLayout->addLayout(horizontalLayout);
 }
 
 bool WBSignalDetectWidget::turnToCorrectTableModel()
 {
-
-    if(m_pGenericModel == nullptr){
+    if (m_pGenericModel == nullptr)
         return false;
-    }
-
     //默认直接切换当前tab也能触发写入合法信号的状态
-    ui->pushButton_setLegalFreq->setChecked(false);
-    on_pushButton_setLegalFreq_clicked(false);
-
-    if(ui->tabWidget_SignalDetectTable->currentIndex() != 0){
-        ui->pushButton_setLegalFreq->setEnabled(false);
-        ui->pushButton_setLegalFreq->hide();
-    }else{
-        ui->pushButton_setLegalFreq->setEnabled(true);
-        ui->pushButton_setLegalFreq->show();
+    emit pushButton_setLegalFreq->clicked(false);
+    if (tabWidget_SignalDetectTable->currentIndex() != 0)
+    {
+        pushButton_setLegalFreq->setEnabled(false);
+        pushButton_setLegalFreq->hide();
     }
-
-    switch (ui->tabWidget_SignalDetectTable->currentIndex()) {
-    case 0:
-        m_pGenericModel->setUserViewType(SIGNAL_DETECT_TABLE);
-        break;
-    case 1:
-        m_pGenericModel->setUserViewType(DISTURB_NOISE_TABLE);
-        break;
-    case 2:
-        m_pGenericModel->setUserViewType(MAN_MADE_NOISE_TABLE);
-        break;
-    default:
-        m_pGenericModel->setUserViewType(NOT_USED);
-        break;
+    else
+    {
+        pushButton_setLegalFreq->setEnabled(true);
+        pushButton_setLegalFreq->show();
     }
-
+    switch (tabWidget_SignalDetectTable->currentIndex())
+    {
+    case 0: m_pGenericModel->setUserViewType(SIGNAL_DETECT_TABLE); break;
+    case 1: m_pGenericModel->setUserViewType(DISTURB_NOISE_TABLE); break;
+    case 2: m_pGenericModel->setUserViewType(MAN_MADE_NOISE_TABLE); break;
+    default: m_pGenericModel->setUserViewType(NOT_USED); break;
+    }
     emit m_pGenericModel->sigTriggerRefreshData();
     return true;
 }
 
-void WBSignalDetectWidget::slotSetDetectParam(ParamSet param)
+void WBSignalDetectWidget::slotHideTypicalFreqSetButton()
 {
-    m_DetectParam = param;
-    m_pGenericModel->setBandwidthThreshold(m_DetectParam.BandwidthThreshold);
-    m_pGenericModel->setActiveThreshold(m_DetectParam.ActiveThreshold);
-    m_pGenericModel->setFreqPointThreshold(m_DetectParam.FreqPointThreshold);
+    pushButton_TypicalFreqSet->setVisible(false);
 }
 
-
-void WBSignalDetectWidget::on_pushButton_ParamSet_clicked()
+void WBSignalDetectWidget::slotShowTypicalFreqSetButton()
 {
-    m_pPopupParamSet->setModal(true);
-    m_pPopupParamSet->show();
-}
-
-void WBSignalDetectWidget::on_pushButton_setLegalFreq_clicked(bool checked)
-{
-    if(checked){
-        ui->pushButton_setLegalFreq->setText("完成设置");
-    }else{
-        ui->pushButton_setLegalFreq->setText("开始设置非法频点");
-    }
-    if(m_pGenericModel){
-        m_pGenericModel->SlotTriggerLegalFreqSet(checked);
-    }
-}
-
-
-void WBSignalDetectWidget::on_pushButton_cleanAllData_clicked()
-{
-    if(m_pGenericModel){
-        m_pGenericModel->SlotCleanUp();
-    }
-}
-
-
-void WBSignalDetectWidget::on_pushButton_GenerateDisturbSIgnal_clicked()
-{
-    //先将tabwidget转到对应的tab上
-    ui->tabWidget_SignalDetectTable->setCurrentIndex(1);
-    QFileDialog dialog;
-    QString selectedFolder = dialog.getExistingDirectory(this, tr("Select Directory"),
-                                                         QDir::currentPath(),
-                                                         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-
-    if (selectedFolder.isEmpty()) {
-        qDebug() << "File saving cancelled.";
-        return;
-    }
-    if(!m_pDisturbNoiseTable->GenerateExcelTable(selectedFolder)){
-        //TODO: 生成失败时的处理方法
-    }
-}
-
-
-void WBSignalDetectWidget::on_pushButton_GenerateManMadeNoise_clicked()
-{
-    //先将tabwidget转到对应的tab上
-    ui->tabWidget_SignalDetectTable->setCurrentIndex(2);
-    QFileDialog dialog;
-    QString selectedFolder = dialog.getExistingDirectory(this, tr("Select Directory"),
-                                                         QDir::currentPath(),
-                                                         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-
-    if (selectedFolder.isEmpty()) {
-        qDebug() << "File saving cancelled.";
-        return;
-    }
-    if(!m_pManMadeNoiseTable->GenerateExcelTable(selectedFolder, m_pGenericModel->mapExistTypicalFreqNoiseRecordAmount())){
-        //TODO: 生成失败时的处理方法
-    }
-}
-
-
-void WBSignalDetectWidget::on_pushButton_GenerateElecEnvReport_clicked()
-{
-
-}
-
-void WBSignalDetectWidget::on_pushButton_importLegal_clicked()
-{
-    QMessageBox msgBox;
-    if(m_pGenericModel){
-        if(m_pGenericModel->SlotImportLegalFreqConf()){
-            msgBox.setText("导入成功！");
-            msgBox.exec();
-            return;
-        }
-    }
-    msgBox.setText("导入失败！");
-    msgBox.exec();
-
-}
-
-void WBSignalDetectWidget::on_pushButton_ExportLegal_clicked()
-{
-    QMessageBox msgBox;
-    if(m_pGenericModel){
-        m_pGenericModel->SlotExportLegalFreqConf();
-        msgBox.setText("导出成功！");
-        msgBox.exec();
-        return;
-    }
-    msgBox.setText("导出失败！");
-    msgBox.exec();
-}
-
-
-
-void WBSignalDetectWidget::on_pushButton_TypicalFreqSet_clicked()
-{
-    m_pTypicalFreqSetWidget->setModal(true);
-    m_pTypicalFreqSetWidget->show();
+    pushButton_TypicalFreqSet->setVisible(true);
 }
 

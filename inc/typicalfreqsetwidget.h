@@ -4,33 +4,28 @@
 #include <QWidget>
 #include <QMap>
 #include <QDialog>
-
-namespace Ui {
-class TypicalFreqSetWidget;
-}
+#include <QCheckBox>
+#include <QDoubleSpinBox>
+#include <QPushButton>
 
 class TypicalFreqSetWidget : public QDialog
 {
     Q_OBJECT
-
 public:
     explicit TypicalFreqSetWidget(QWidget *parent = nullptr);
-    ~TypicalFreqSetWidget();
+    void SetCurrentTypicalFreqFromTable(QList<int> lst);
 
 signals:
-    void sigHaveTypicalFreq(const QMap<int, int>& mapValue);
-
-private slots:
-    void on_pushButton_Confirm_clicked();
-
-    void on_pushButton_Cancel_clicked();
-//TODO:读写ini文件，设置值合理性判断等
+    void sigHaveTypicalFreq(const QList<int>& mapValue);
 
 private:
-    Ui::TypicalFreqSetWidget *ui;
-
-    QMap<int, int> m_mapValue;
-
+    void setupUi();
+    QList<int> m_lstValue;
+    static constexpr int SETTING_LINE = 7;
+    QCheckBox *checkBox_Enable[SETTING_LINE];
+    QDoubleSpinBox *lineEdit_TypicalFreq[SETTING_LINE];
+    QPushButton *pushButton_Confirm;
+    QPushButton *pushButton_Cancel;
 };
 
 #endif // TYPICALFREQSETWIDGET_H

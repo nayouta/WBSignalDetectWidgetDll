@@ -19,7 +19,9 @@ SOURCES += \
     ../src/typicalfreqsetwidget.cpp
 
 HEADERS += \
+    ../inc/TinyConfig.h \
     ../inc/disturbnoisetableview.h \
+    ../inc/global.h \
     ../inc/mainwindow.h \
     ../inc/manmadenoisetableview.h \
     ../inc/signaldetecttableview.h \

@@ -1,18 +1,15 @@
-#include "../inc/disturbnoisetableview.h"
+#include "DisturbNoiseTableView.h"
 #include <QHeaderView>
 
 #include "xlsxdocument.h"
 #include "xlsxcellrange.h"
 
-using namespace QXlsx;
-
-DisturbNoiseTableView::DisturbNoiseTableView(QWidget *parent)
-    : QTableView (parent)
+DisturbNoiseTableView::DisturbNoiseTableView(QWidget *parent): QTableView (parent)
 {
     horizontalHeader()->setStretchLastSection(true);
     horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     setSortingEnabled(true);
-    this->verticalHeader()->hide();
+    verticalHeader()->hide();
 }
 
 bool DisturbNoiseTableView::GenerateExcelTable(QString folderName)
@@ -47,12 +44,13 @@ bool DisturbNoiseTableView::GenerateExcelTable(QString folderName)
     xlsx.write("C4", "", format);
 
     xlsx.write("E4", "中频带宽", format);
+    xlsx.write("F4", "2.4KHz", format);
 
     xlsx.write("G4", "检波方式", format);
 
     range = QXlsx::CellRange("H4:I4");
     xlsx.mergeCells(range, format);
-    xlsx.write("H4", "", format);
+    xlsx.write("H4", "RMS", format);
 
     // Write column headers
     QHeaderView *headerView = this->horizontalHeader();
