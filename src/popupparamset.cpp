@@ -15,6 +15,11 @@ void PopupParamSet::setupUi()
     formLayout->addRow(new QLabel("载波检测带宽匹配差值(KHz):"), doubleSpinBox_BandwidthThreshold = new QDoubleSpinBox);
     formLayout->addRow(new QLabel("非活动信号时间范围(秒):"), spinBox_ActiveThreshold = new QSpinBox);
 
+    spinBox_ActiveThreshold->setValue(10);
+    doubleSpinBox_BandwidthThreshold->setValue(10);
+    doubleSpinBox_FreqPointThreshold->setValue(10);
+
+
     auto horizontalLayout = new QHBoxLayout;
     horizontalLayout->addStretch();
     horizontalLayout->addWidget(pushButton_Confirm = new QPushButton("确认"));

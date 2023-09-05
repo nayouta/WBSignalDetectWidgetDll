@@ -8,8 +8,6 @@
 
 #include "wbsignaldetectwidget.h"
 
-#include "wbsignaldetectmodel.h"
-
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -39,8 +37,13 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_pSigDetectWidget = new WBSignalDetectWidget(this);
 
-    this->setCentralWidget(m_pSigDetectWidget);
-    emit m_pSigDetectWidget->sigSetValidAmpThreshold(-100);
+
+    if(ui->widget->layout() == nullptr){
+        ui->widget->setLayout(new QVBoxLayout());
+    }
+    ui->widget->layout()->addWidget(m_pSigDetectWidget);
+
+    emit m_pSigDetectWidget->sigSetValidAmpThreshold(0);
 
     connect(&timer, &QTimer::timeout, this, &MainWindow::slotTriggerTimer);
 

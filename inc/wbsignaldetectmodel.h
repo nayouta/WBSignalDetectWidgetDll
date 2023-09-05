@@ -38,6 +38,27 @@ struct DisplaySignalCharacter
     bool isLegal = true;
 };
 
+struct ManMadeNoiseInfo{
+    qint64 startTime = 0;
+    qint64 stopTime = 0;
+    float Amp;
+    int CentFreq;             //HZ
+
+    bool operator==(const ManMadeNoiseInfo& other) const{
+        //频点
+        if(CentFreq != other.CentFreq){
+            return false;
+        }
+        //时间元素
+        if(startTime != other.startTime ||
+            stopTime != other.stopTime){
+            return false;
+        }
+        return true;
+    }
+};
+
+
 enum MODEL_USER_VIEW
 {
     NOT_USED = 0,
@@ -49,8 +70,8 @@ enum MODEL_USER_VIEW
 class noiseAmp
 {
 public:
-    int freqPointPos;
-    int amp;
+    int freqPointPos = 0;
+    int amp = 0;
     //仅用于判断当前幅度值的关系
     bool operator<(const noiseAmp& other) const
     {
@@ -60,6 +81,15 @@ public:
             return this->freqPointPos < other.freqPointPos;
         return false;
     }
+};
+
+struct ManMadeNoiseAnalyse
+{
+    //典型频点-------测量频点0----测量电平0
+    //           |
+    //           |---测量频点1
+    long m_lGetAmpTimes = 0;
+    QMap<int, QMap<int, int>> m_mapStoreAmpValueToGetManMadeNoiseValue;  //记录当前典型频率点对应的10个测量频点，包含每次分析所得的电平幅值，每次都与前一次算均值
 };
 
 class WBSignalDetectModel: public QAbstractTableModel
@@ -83,7 +113,6 @@ public:
     QList<int> lstTypicalFreq() const;
     void setLstTypicalFreq(const QList<int> &newLstTypicalFreq);
     QMap<int, int> mapExistTypicalFreqNoiseRecordAmount() const;
-    QMap<int, int> mapTypicalFreqAndItsTestFreq() const;
 
     bool bIsDetecting() const;
 
@@ -111,7 +140,7 @@ public slots:
 private:
     bool findPeakIteratively(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
     bool findPeakCyclically(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
-    bool findManMadeNoiseFreqAutolly(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
+    bool getManMadeNoiseAmpInEveryTestFreqSpanFromFullSpan(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
     //根据当前典型频点自动找出用于长时间累计记录的测量频点
     bool findNoiseCharaAroundTypicalFreq(Ipp32f *FFtAvg, int length, int Freqency, int BandWidth);
     QTimer* m_pSignalActiveChecker = nullptr;
@@ -121,7 +150,7 @@ private:
     //TODO: 可能需要长时间使用，需要设置一个处理中间数据的行为，可以利用1s的定时器，定时清理map中的list的中段数据，仅保留头尾元素
     QMap<SignalBaseChar, QList<DisplaySignalCharacter>> m_mapValidSignalCharacter;
     //用于统计人为噪声（底噪）在各个频点时间内的表现形式 key: 典型频率点
-    QMap<int, QList<DisplaySignalCharacter>> m_mapManMadeNoiseCharacter;
+    QMap<int, QList<ManMadeNoiseInfo>> m_mapManMadeNoiseCharacter;
     //TODO:用于完成单次信号分析处理后，重新计算中心频点key，修改key后会影响界面上的中心频点的显示
     void reAlignValidSignalCharacterMap();
     MODEL_USER_VIEW m_eUserViewType = NOT_USED;
@@ -129,20 +158,19 @@ private:
     QList<QList<QVariant>> m_DisplayData;
     QFont m_Font;
     int m_iFullBandWidth;       //总带宽       HZ
-    qint64 m_i64SystemStartTime = 0;
-    qint64 m_i64SystemStopTime = 0;
-    uint m_ActiveThreshold = 0;         //单位为s
+
+    qint64 m_i64SystemStartTime = 0;                //系统启动时的时间，软件启动时开始计算，用于计算信号占用率
+    qint64 m_i64SystemStopTime = 0;                 //系统/信号分析 停止时的时间，用于计算信号占用率，也作为当前处理的停止时间
+    qint64 m_i64CurrentDetectStartTime = 0;         //当前信号处理的开始时间
+
+    uint m_ActiveThreshold = 10;         //单位为s
     bool m_bIsSettingLegalFreqFlag = false;
-    QMap<int, int> m_mapTypicalFreqAndItsTestFreq;        //记录当前典型频率点及其附近找到的测试频点的对应关系       //默认测试频点未成功设置的情况下其值为0
-    QMap<int, QList<int>> m_mapStoreAmpValueToGetManMadeNoiseValue;  //暂存当前典型频率点附近找到的测试频点的幅值
-    int m_iCheckBandAroundTypicalFreq = 2e6;    //默认检测典型频率点周围2m范围内信号的噪声特性
+
+    ManMadeNoiseAnalyse m_ManMadNoiseAnalyse;
     qint64 m_iFindNoiseCharaTimeGap = 0;
-    bool m_bManuallySetManMadeNoiseFreq = false;    //手动设置人为噪声测量频点标志位
     std::mutex m_mutex;
     bool m_bIsDetecting = false;            //用于记录当前是否正在检测信号
 
-private slots:
-    void slotCheckSignalActive();
 };
 
 #endif // WBSIGNALDETECTMODEL_H

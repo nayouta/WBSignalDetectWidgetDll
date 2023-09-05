@@ -34,8 +34,8 @@ void TypicalFreqSetWidget::setupUi()
         horizontalLayout->addWidget(checkBox_Enable[i] = new QCheckBox("启用"));
         horizontalLayout->addWidget(new QLabel("典型频率(MHz):"));
         horizontalLayout->addWidget(lineEdit_TypicalFreq[i] = new QDoubleSpinBox);
-        lineEdit_TypicalFreq[i]->setMinimum(0);
-        lineEdit_TypicalFreq[i]->setMaximum(30);
+        lineEdit_TypicalFreq[i]->setMinimum(0 + 0.2);
+        lineEdit_TypicalFreq[i]->setMaximum(30 - 0.2);
         vBoxLayout->addLayout(horizontalLayout);
     }
     auto horizontalLayout = new QHBoxLayout;
@@ -45,13 +45,22 @@ void TypicalFreqSetWidget::setupUi()
         m_lstValue.clear();
         for (auto i = 0; i < SETTING_LINE; ++i)
         {
-            //不接受设置为0MHz的情况
-            if(int(lineEdit_TypicalFreq[i]->text().toDouble() * 1e6) == 0){
-                continue;
-            }
             if(checkBox_Enable[i]->isChecked())
                 m_lstValue.append(lineEdit_TypicalFreq[i]->text().toDouble() * 1e6);
         }
+        //检查设置的典型频点彼此间是否在0.4mhz以上
+        for(int index = 0; index < m_lstValue.length(); ++index){
+            for(int otherIndex = 0; otherIndex < m_lstValue.length(); ++otherIndex){
+                if(otherIndex == index){
+                    continue;
+                }
+                if(std::abs(m_lstValue[index] - m_lstValue[otherIndex]) < 0.4e6){
+                    QMessageBox::information(nullptr, "典型频点设置", "典型频点间距需大于0.4MHz，设置失败！");
+                    return;
+                }
+            }
+        }
+
         if(!m_lstValue.isEmpty()){
             emit sigHaveTypicalFreq(m_lstValue);
         }
