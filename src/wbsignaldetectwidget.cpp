@@ -59,8 +59,8 @@ void WBSignalDetectWidget::setupUi()
         m_pPopupParamSet->show();
     });
     horizontalLayout->addWidget(pushButton_TypicalFreqSet = new QPushButton("典型频点设置"));
-    connect(this, &WBSignalDetectWidget::startDetect, this, &WBSignalDetectWidget::slotShowTypicalFreqSetButton);
-    connect(this, &WBSignalDetectWidget::stopDetect, this, &WBSignalDetectWidget::slotHideTypicalFreqSetButton);
+    connect(this, &WBSignalDetectWidget::startDetect, this, &WBSignalDetectWidget::slotHideTypicalFreqSetButton);
+    connect(this, &WBSignalDetectWidget::stopDetect, this, &WBSignalDetectWidget::slotShowTypicalFreqSetButton);
     connect(pushButton_TypicalFreqSet, &QPushButton::clicked, this, [this] {
         m_pTypicalFreqSetWidget->setModal(true);
         m_pTypicalFreqSetWidget->SetCurrentTypicalFreqFromTable(m_pGenericModel->lstTypicalFreq());
